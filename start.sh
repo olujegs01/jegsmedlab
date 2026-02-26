@@ -1,9 +1,9 @@
 #!/bin/bash
-# MedLab AI — Start both backend and frontend
+# JegsMedLab — Start both backend and frontend
 
 ROOT="$HOME/med-lab-ai"
 
-echo "Starting MedLab AI..."
+echo "Starting JegsMedLab..."
 
 # Backend
 echo "Starting backend on :8000"
@@ -19,7 +19,7 @@ npm run dev &
 FRONTEND_PID=$!
 
 echo ""
-echo "MedLab AI is running!"
+echo "JegsMedLab is running!"
 echo "  Frontend: http://localhost:3000"
 echo "  Backend:  http://localhost:8000"
 echo "  API docs: http://localhost:8000/docs"

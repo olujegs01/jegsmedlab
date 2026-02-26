@@ -1,11 +1,11 @@
 #!/bin/bash
-# MedLab AI — One-command setup script
+# JegsMedLab — One-command setup script
 
 set -e
 
 echo ""
 echo "╔══════════════════════════════════════════╗"
-echo "║        MedLab AI — Setup Script         ║"
+echo "║        JegsMedLab — Setup Script        ║"
 echo "╚══════════════════════════════════════════╝"
 echo ""
 

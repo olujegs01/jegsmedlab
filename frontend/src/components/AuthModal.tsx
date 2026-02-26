@@ -45,7 +45,7 @@ export default function AuthModal() {
           <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg mb-4">
             <FlaskConical className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900">MedLab AI</h1>
+          <h1 className="text-3xl font-bold text-slate-900">JegsMedLab</h1>
           <p className="text-slate-500 mt-1">Your personal health intelligence platform</p>
         </div>
 

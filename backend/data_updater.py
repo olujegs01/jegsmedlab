@@ -1,5 +1,5 @@
 """
-MedLab AI — Automatic Knowledge Base Updater
+JegsMedLab — Automatic Knowledge Base Updater
 Fetches publicly available medical data from NIH, NLM, PubMed, and OpenFDA
 and adds new content to the ChromaDB RAG collection daily.
 
@@ -111,7 +111,7 @@ class MedicalDataUpdater:
         self.rag = rag_system
         self.http = httpx.AsyncClient(
             timeout=30.0,
-            headers={"User-Agent": "MedLabAI/2.0 (educational research tool; contact: medlabai@example.com)"},
+            headers={"User-Agent": "JegsMedLab/2.0 (educational research tool; contact: jegsmedlab@example.com)"},
             follow_redirects=True,
         )
 

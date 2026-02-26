@@ -7,11 +7,11 @@ import {
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "MedLab AI — Understand Your Lab Results in Plain English",
+  title: "JegsMedLab — Understand Your Lab Results in Plain English",
   description: "Upload your lab reports and get instant AI-powered interpretations, symptom analysis, trend tracking, and personalized health insights. Powered by Claude AI.",
   keywords: "lab results, blood test interpreter, AI health, symptom checker, medical AI",
   openGraph: {
-    title: "MedLab AI — Understand Your Lab Results in Plain English",
+    title: "JegsMedLab — Understand Your Lab Results in Plain English",
     description: "AI-powered lab result interpretation. Upload, analyze, and understand your health data.",
     type: "website",
   },
@@ -114,7 +114,7 @@ const plans = [
 
 const testimonials = [
   {
-    quote: "I finally understand what my doctor has been trying to tell me for years. MedLab AI explained my thyroid results better than any pamphlet.",
+    quote: "I finally understand what my doctor has been trying to tell me for years. JegsMedLab explained my thyroid results better than any pamphlet.",
     name: "Sarah K.",
     role: "Managing Hashimoto's disease",
     avatar: "SK",
@@ -150,7 +150,7 @@ export default function LandingPage() {
             <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-lg flex items-center justify-center">
               <FlaskConical className="w-4 h-4 text-white" />
             </div>
-            <span className="font-bold text-slate-900 text-lg">MedLab AI</span>
+            <span className="font-bold text-slate-900 text-lg">JegsMedLab</span>
           </div>
           <div className="hidden sm:flex items-center gap-6 text-sm text-slate-600">
             <a href="#features" className="hover:text-blue-600 transition-colors">Features</a>
@@ -236,7 +236,7 @@ export default function LandingPage() {
             Everything You Need to Own Your Health
           </h2>
           <p className="text-slate-500 text-lg max-w-2xl mx-auto">
-            MedLab AI combines six powerful tools into one platform — replacing apps like
+            JegsMedLab combines six powerful tools into one platform — replacing apps like
             MedDecode, LabSense, ClearLab, and Wizey Health.
           </p>
         </div>
@@ -379,7 +379,7 @@ export default function LandingPage() {
         <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-12 text-center text-white">
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">Ready to Understand Your Health?</h2>
           <p className="text-blue-100 text-lg mb-8 max-w-xl mx-auto">
-            Join thousands of people who use MedLab AI to take control of their health data.
+            Join thousands of people who use JegsMedLab to take control of their health data.
           </p>
           <Link
             href="/app"
@@ -401,7 +401,7 @@ export default function LandingPage() {
                 <div className="w-7 h-7 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-lg flex items-center justify-center">
                   <FlaskConical className="w-3.5 h-3.5 text-white" />
                 </div>
-                <span className="font-bold text-slate-900">MedLab AI</span>
+                <span className="font-bold text-slate-900">JegsMedLab</span>
               </div>
               <p className="text-sm text-slate-500 leading-relaxed">
                 AI-powered health intelligence platform. Understand your lab results in plain English.
@@ -433,7 +433,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="border-t border-slate-200 pt-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400">
-            <p>© 2025 MedLab AI. All rights reserved.</p>
+            <p>© 2025 JegsMedLab. All rights reserved.</p>
             <p>For educational purposes only. Not a substitute for professional medical advice.</p>
           </div>
         </div>

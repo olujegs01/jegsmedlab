@@ -1,5 +1,5 @@
 """
-Email notification service for MedLab AI using SendGrid.
+Email notification service for JegsMedLab using SendGrid.
 Sends critical lab alerts and welcome emails.
 """
 import os
@@ -10,8 +10,8 @@ from sendgrid.helpers.mail import Mail, HtmlContent, To
 logger = logging.getLogger(__name__)
 
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY", "")
-FROM_EMAIL = os.getenv("FROM_EMAIL", "alerts@medlabai.com")
-FROM_NAME = os.getenv("FROM_NAME", "MedLab AI")
+FROM_EMAIL = os.getenv("FROM_EMAIL", "alerts@jegsmedlab.com")
+FROM_NAME = os.getenv("FROM_NAME", "JegsMedLab")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 
@@ -44,13 +44,13 @@ def send_welcome_email(to_email: str, full_name: str) -> bool:
     html = f"""
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; background: #f8fafc; padding: 40px 20px;">
       <div style="background: linear-gradient(135deg, #1d4ed8, #4338ca); border-radius: 16px; padding: 40px; text-align: center; margin-bottom: 24px;">
-        <h1 style="color: white; font-size: 28px; margin: 0 0 8px;">Welcome to MedLab AI</h1>
+        <h1 style="color: white; font-size: 28px; margin: 0 0 8px;">Welcome to JegsMedLab</h1>
         <p style="color: #bfdbfe; margin: 0; font-size: 16px;">Your personal health intelligence platform</p>
       </div>
       <div style="background: white; border-radius: 16px; padding: 32px; margin-bottom: 16px; border: 1px solid #e2e8f0;">
         <h2 style="color: #1e293b; margin: 0 0 16px;">Hi {name} 👋</h2>
         <p style="color: #475569; line-height: 1.6; margin: 0 0 16px;">
-          You're all set! MedLab AI uses Claude Opus 4.6 AI with medical RAG retrieval to help you
+          You're all set! JegsMedLab uses Claude Opus 4.6 AI with medical RAG retrieval to help you
           understand your lab results in plain English.
         </p>
         <h3 style="color: #1e293b; margin: 24px 0 12px;">Get started in 3 steps:</h3>
@@ -60,16 +60,16 @@ def send_welcome_email(to_email: str, full_name: str) -> bool:
           <p style="margin: 0; color: #334155;"><strong>3.</strong> Ask follow-up questions in plain English</p>
         </div>
         <a href="{FRONTEND_URL}/app" style="display: inline-block; background: #2563eb; color: white; text-decoration: none; font-weight: 600; padding: 14px 32px; border-radius: 12px; font-size: 16px;">
-          Open MedLab AI →
+          Open JegsMedLab →
         </a>
       </div>
       <p style="text-align: center; color: #94a3b8; font-size: 12px; margin: 0;">
-        MedLab AI is for educational purposes only. Not a substitute for professional medical advice.
-        <br>© 2025 MedLab AI
+        JegsMedLab is for educational purposes only. Not a substitute for professional medical advice.
+        <br>© 2025 JegsMedLab
       </p>
     </div>
     """
-    return _send(to_email, "Welcome to MedLab AI 🧬", html)
+    return _send(to_email, "Welcome to JegsMedLab 🧬", html)
 
 
 def send_critical_alert_email(to_email: str, full_name: str, alerts: list[dict]) -> bool:
@@ -110,11 +110,11 @@ def send_critical_alert_email(to_email: str, full_name: str, alerts: list[dict])
       </div>
       <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
         <p style="color: #92400e; margin: 0; font-size: 13px;">
-          <strong>Important:</strong> This is an automated alert from MedLab AI for educational purposes.
+          <strong>Important:</strong> This is an automated alert from JegsMedLab for educational purposes.
           Always consult your healthcare provider for medical advice and treatment decisions.
         </p>
       </div>
-      <p style="text-align: center; color: #94a3b8; font-size: 12px; margin: 0;">© 2025 MedLab AI</p>
+      <p style="text-align: center; color: #94a3b8; font-size: 12px; margin: 0;">© 2025 JegsMedLab</p>
     </div>
     """
     return _send(to_email, f"⚠️ Critical Lab Values Detected — Action Required", html)
@@ -137,7 +137,7 @@ def send_report_ready_email(to_email: str, full_name: str, report_summary: str) 
           View Full Analysis →
         </a>
       </div>
-      <p style="text-align: center; color: #94a3b8; font-size: 12px; margin: 0;">© 2025 MedLab AI · Educational purposes only</p>
+      <p style="text-align: center; color: #94a3b8; font-size: 12px; margin: 0;">© 2025 JegsMedLab · Educational purposes only</p>
     </div>
     """
     return _send(to_email, "Your Lab Report Analysis is Ready 🧬", html)

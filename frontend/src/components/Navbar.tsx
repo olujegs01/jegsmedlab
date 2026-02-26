@@ -51,7 +51,7 @@ export default function Navbar({ activeTab, setActiveTab, onViewReport }: Navbar
               <FlaskConical className="w-5 h-5 text-white" />
             </div>
             <div className="hidden sm:block">
-              <span className="font-bold text-slate-900 text-lg leading-tight">MedLab AI</span>
+              <span className="font-bold text-slate-900 text-lg leading-tight">JegsMedLab</span>
               <p className="text-xs text-slate-400 leading-tight">Intelligent Lab Interpreter</p>
             </div>
           </div>
@@ -122,7 +122,7 @@ export default function Navbar({ activeTab, setActiveTab, onViewReport }: Navbar
                         <button
                           onClick={async () => {
                             try {
-                              const token = localStorage.getItem("medlab_token");
+                              const token = localStorage.getItem("jegsmedlab_token");
                               const res = await fetch("/api/billing/checkout", {
                                 method: "POST",
                                 headers: { Authorization: `Bearer ${token}` },

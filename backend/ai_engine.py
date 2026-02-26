@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
-SYSTEM_PROMPT = """You are MedLab AI — an advanced AI medical lab analyst and health advisor.
+SYSTEM_PROMPT = """You are JegsMedLab — an advanced AI medical lab analyst and health advisor.
 You combine the capabilities of leading health platforms:
 - Clear, patient-friendly explanations (like Wizey Health)
 - Comprehensive symptom analysis (like Kantesti)

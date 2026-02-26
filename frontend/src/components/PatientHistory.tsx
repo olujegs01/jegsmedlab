@@ -127,7 +127,7 @@ export default function PatientHistory({ onViewReport, patientId = "demo-patient
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `MedLabAI_${selectedReport.filename || "report"}.pdf`;
+      a.download = `JegsMedLab_${selectedReport.filename || "report"}.pdf`;
       a.click();
       window.URL.revokeObjectURL(url);
     } catch {

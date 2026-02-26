@@ -9,5 +9,5 @@ restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
 [[services]]
-name = "medlab-ai-backend"
+name = "jegsmedlab-backend"
 source = "backend"

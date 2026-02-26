@@ -176,7 +176,7 @@ export default function Dashboard({ setActiveTab, patientId = "demo-patient" }: 
 
       {/* Features Grid */}
       <div>
-        <h2 className="text-xl font-bold text-slate-900 mb-4">What MedLab AI Can Do</h2>
+        <h2 className="text-xl font-bold text-slate-900 mb-4">What JegsMedLab Can Do</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {features.map((f) => {
             const Icon = f.icon;

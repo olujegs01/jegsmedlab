@@ -1,6 +1,6 @@
 {
-  "name": "MedLab AI",
-  "short_name": "MedLab AI",
+  "name": "JegsMedLab",
+  "short_name": "JegsMedLab",
   "description": "AI-powered lab result interpretation and symptom checker",
   "start_url": "/app",
   "display": "standalone",

@@ -2,22 +2,22 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "MedLab AI — Understand Your Lab Results in Plain English",
+  title: "JegsMedLab — Understand Your Lab Results in Plain English",
   description:
     "AI-powered lab result interpretation. Upload lab reports, check symptoms, and get personalized health insights powered by Claude Opus 4.6.",
   keywords: "lab results interpreter, blood test AI, symptom checker, medical AI, health insights",
-  authors: [{ name: "MedLab AI" }],
+  authors: [{ name: "JegsMedLab" }],
   icons: { icon: "/favicon.ico", apple: "/icon-192.png" },
   manifest: "/manifest.json",
   openGraph: {
-    title: "MedLab AI — Understand Your Lab Results in Plain English",
+    title: "JegsMedLab — Understand Your Lab Results in Plain English",
     description: "Upload your lab reports and get instant AI-powered interpretations in plain English.",
     type: "website",
-    siteName: "MedLab AI",
+    siteName: "JegsMedLab",
   },
   twitter: {
     card: "summary_large_image",
-    title: "MedLab AI",
+    title: "JegsMedLab",
     description: "AI-powered lab result interpretation and symptom checker.",
   },
 };

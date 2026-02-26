@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: medlab-ai-backend
+    name: jegsmedlab-backend
     env: python
     region: ohio
     plan: free

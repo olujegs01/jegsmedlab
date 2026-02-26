@@ -1,5 +1,5 @@
 """
-Stripe billing integration for MedLab AI.
+Stripe billing integration for JegsMedLab.
 Handles subscriptions, webhooks, and plan enforcement.
 """
 import stripe

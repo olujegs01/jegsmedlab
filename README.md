@@ -1,4 +1,4 @@
-# MedLab AI — Intelligent Lab Result Interpreter
+# JegsMedLab — Intelligent Lab Result Interpreter
 
 An AI-powered medical lab result interpretation platform combining features from Wizey Health, Kantesti, TestResult, LabSense Health, ClearLab AI, and MedDecode.
 

@@ -1,5 +1,5 @@
 """
-MedLab AI — FastAPI Backend
+JegsMedLab — FastAPI Backend
 Comprehensive AI-powered lab result interpretation platform.
 """
 
@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
-    title="MedLab AI",
+    title="JegsMedLab",
     description="AI-Powered Lab Result Interpretation Platform",
     version="2.0.0",
 )
@@ -164,7 +164,7 @@ def generate_alerts_for_values(
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "MedLab AI", "version": "2.0.0"}
+    return {"status": "healthy", "service": "JegsMedLab", "version": "2.0.0"}
 
 
 # ── Auth ─────────────────────────────────────────────────────────────────────
@@ -533,7 +533,7 @@ async def export_report_pdf(
 
     pdf_bytes = generate_report_pdf(report_dict, values_list, patient_dict)
     safe_name = (report.filename or "report").replace(" ", "_").replace(".pdf", "")
-    filename = f"MedLabAI_{safe_name}_{report_id[:8]}.pdf"
+    filename = f"JegsMedLab_{safe_name}_{report_id[:8]}.pdf"
 
     return Response(
         content=pdf_bytes,
@@ -892,7 +892,7 @@ async def get_dashboard_stats(
 async def startup_event():
     """Start the daily knowledge base update scheduler on server boot."""
     setup_scheduler(rag_system)
-    logger.info("MedLab AI v2.0 started with daily knowledge updater.")
+    logger.info("JegsMedLab v2.0 started with daily knowledge updater.")
 
 
 @app.on_event("shutdown")

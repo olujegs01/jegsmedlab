@@ -1,5 +1,5 @@
 """
-JWT authentication utilities for MedLab AI.
+JWT authentication utilities for JegsMedLab.
 """
 
 import jwt
@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 import models
 
-SECRET_KEY = os.getenv("SECRET_KEY", "medlab-ai-secret-key-change-in-production")
+SECRET_KEY = os.getenv("SECRET_KEY", "jegsmedlab-secret-key-change-in-production")
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_DAYS = 30
 

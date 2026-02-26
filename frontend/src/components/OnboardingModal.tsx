@@ -8,9 +8,9 @@ const STEPS = [
   {
     icon: FlaskConical,
     color: "from-blue-500 to-indigo-600",
-    title: "Welcome to MedLab AI",
+    title: "Welcome to JegsMedLab",
     subtitle: "Your personal health intelligence platform",
-    content: "MedLab AI uses Claude Opus 4.6 AI with medical knowledge from NIH, PubMed, and FDA to help you understand your health data in plain English.",
+    content: "JegsMedLab uses Claude Opus 4.6 AI with medical knowledge from NIH, PubMed, and FDA to help you understand your health data in plain English.",
     cta: "Let's get started",
   },
   {
@@ -35,7 +35,7 @@ const STEPS = [
     title: "Track Your Health Over Time",
     subtitle: "Step 3 of 3",
     content: "See how your lab values trend over months. Spot what's improving and what needs attention. Ask AI follow-up questions anytime.",
-    cta: "Start Using MedLab AI",
+    cta: "Start Using JegsMedLab",
   },
 ];
 
@@ -44,14 +44,14 @@ export default function OnboardingModal() {
   const [step, setStep] = useState(0);
 
   useEffect(() => {
-    const seen = localStorage.getItem("medlab_onboarded");
+    const seen = localStorage.getItem("jegsmedlab_onboarded");
     if (!seen) {
       setTimeout(() => setOpen(true), 800);
     }
   }, []);
 
   const dismiss = () => {
-    localStorage.setItem("medlab_onboarded", "true");
+    localStorage.setItem("jegsmedlab_onboarded", "true");
     setOpen(false);
   };
 

@@ -29,15 +29,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem("medlab_token");
-    const storedUser = localStorage.getItem("medlab_user");
+    const stored = localStorage.getItem("jegsmedlab_token");
+    const storedUser = localStorage.getItem("jegsmedlab_user");
     if (stored && storedUser) {
       try {
         setToken(stored);
         setUser(JSON.parse(storedUser));
       } catch {
-        localStorage.removeItem("medlab_token");
-        localStorage.removeItem("medlab_user");
+        localStorage.removeItem("jegsmedlab_token");
+        localStorage.removeItem("jegsmedlab_user");
       }
     }
   }, []);
@@ -58,8 +58,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     setToken(data.access_token);
     setUser(authUser);
-    localStorage.setItem("medlab_token", data.access_token);
-    localStorage.setItem("medlab_user", JSON.stringify(authUser));
+    localStorage.setItem("jegsmedlab_token", data.access_token);
+    localStorage.setItem("jegsmedlab_user", JSON.stringify(authUser));
   };
 
   const register = async (email: string, password: string, fullName: string) => {
@@ -78,15 +78,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     setToken(data.access_token);
     setUser(authUser);
-    localStorage.setItem("medlab_token", data.access_token);
-    localStorage.setItem("medlab_user", JSON.stringify(authUser));
+    localStorage.setItem("jegsmedlab_token", data.access_token);
+    localStorage.setItem("jegsmedlab_user", JSON.stringify(authUser));
   };
 
   const logout = () => {
     setUser(null);
     setToken(null);
-    localStorage.removeItem("medlab_token");
-    localStorage.removeItem("medlab_user");
+    localStorage.removeItem("jegsmedlab_token");
+    localStorage.removeItem("jegsmedlab_user");
   };
 
   return (

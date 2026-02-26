@@ -159,7 +159,7 @@ export default function AskAI({ reportId, patientId = "demo-patient" }: AskAIPro
                   <Bot className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="font-semibold text-slate-900 text-sm">MedLab AI Assistant</p>
+                  <p className="font-semibold text-slate-900 text-sm">JegsMedLab Assistant</p>
                   <p className="text-slate-500 text-xs mt-0.5">
                     Ask me anything about your lab results, symptoms, or health topics.
                     I use medical knowledge and{" "}
