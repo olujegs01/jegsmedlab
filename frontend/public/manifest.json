@@ -1,0 +1,38 @@
+{
+  "name": "MedLab AI",
+  "short_name": "MedLab AI",
+  "description": "AI-powered lab result interpretation and symptom checker",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["health", "medical", "lifestyle"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Upload Lab Report",
+      "url": "/app?tab=upload",
+      "description": "Upload and analyze a lab report"
+    },
+    {
+      "name": "Symptom Checker",
+      "url": "/app?tab=symptoms",
+      "description": "Check your symptoms"
+    }
+  ]
+}
