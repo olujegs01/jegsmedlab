@@ -48,6 +48,33 @@ logger = logging.getLogger(__name__)
 
 Base.metadata.create_all(bind=engine)
 
+# Run safe column migrations (adds new columns if they don't exist yet)
+def run_migrations():
+    import sqlite3
+    db_path = os.getenv("DATABASE_URL", "sqlite:///./medlab.db").replace("sqlite:///", "")
+    if not db_path.startswith("/"):
+        db_path = "./" + db_path.lstrip("./")
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        new_columns = [
+            ("lab_reports", "drug_interactions", "TEXT"),
+            ("lab_reports", "action_plan",       "TEXT"),
+            ("lab_reports", "referral_letter",   "TEXT"),
+        ]
+        for table, column, col_type in new_columns:
+            try:
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
+                logger.info(f"Migration: added column {column} to {table}")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.warning(f"Migration warning: {e}")
+
+run_migrations()
+
 app = FastAPI(
     title="JegsMedLab",
     description="AI-Powered Lab Result Interpretation Platform",
