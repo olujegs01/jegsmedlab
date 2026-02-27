@@ -414,6 +414,43 @@ async def upload_lab_report(
 
         await extract_and_store()
 
+        # Fetch extracted values for post-processing
+        saved_values = db.query(LabValue).filter(LabValue.report_id == report_id).all()
+        values_list = [
+            {"test_name": v.test_name, "value": v.value, "unit": v.unit, "status": v.status, "category": v.category}
+            for v in saved_values
+        ]
+
+        # Emit emergency alert if life-threatening values detected
+        emergencies = detect_emergency_values(values_list)
+        if emergencies:
+            yield f"data: {json.dumps({'type': 'emergency', 'values': emergencies})}\n\n"
+
+        # Run drug interactions and action plan in parallel (background AI calls)
+        import asyncio
+        interactions_result, plan_result = await asyncio.gather(
+            ai_engine.detect_drug_interactions(
+                medications=patient_info.get("medications", []),
+                lab_values=values_list,
+            ),
+            ai_engine.generate_action_plan(
+                lab_values=values_list,
+                patient_info=patient_info,
+                ai_summary=full_summary[:800],
+            ),
+            return_exceptions=True,
+        )
+
+        report_obj = db.query(LabReport).filter(LabReport.id == report_id).first()
+        if report_obj:
+            if isinstance(interactions_result, list) and interactions_result:
+                report_obj.drug_interactions = json.dumps(interactions_result)
+                yield f"data: {json.dumps({'type': 'drug_interactions', 'data': interactions_result})}\n\n"
+            if isinstance(plan_result, list) and plan_result:
+                report_obj.action_plan = json.dumps(plan_result)
+                yield f"data: {json.dumps({'type': 'action_plan', 'data': plan_result})}\n\n"
+            db.commit()
+
         invalidate_patient_cache(effective_patient_id)
         yield f"data: {json.dumps({'type': 'done', 'report_id': report_id})}\n\n"
 
@@ -554,17 +591,30 @@ async def create_share_link(
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
 
-    # Check if a share token already exists for this report
+    from datetime import timedelta
+    # Check if a valid (non-expired) share token already exists for this report
     existing = db.query(ShareToken).filter(ShareToken.report_id == report_id).first()
     if existing:
-        return {"token": existing.token, "share_url": f"/shared/{existing.token}"}
+        if existing.expires_at and existing.expires_at < datetime.utcnow():
+            db.delete(existing)
+            db.commit()
+        else:
+            return {
+                "token": existing.token,
+                "share_url": f"/shared/{existing.token}",
+                "expires_at": existing.expires_at.isoformat() if existing.expires_at else None,
+            }
 
     token = str(uuid.uuid4()).replace("-", "")
-    share = ShareToken(token=token, report_id=report_id)
+    share = ShareToken(
+        token=token,
+        report_id=report_id,
+        expires_at=datetime.utcnow() + timedelta(days=30),
+    )
     db.add(share)
     db.commit()
 
-    return {"token": token, "share_url": f"/shared/{token}"}
+    return {"token": token, "share_url": f"/shared/{token}", "expires_at": share.expires_at.isoformat()}
 
 
 @app.get("/api/shared/{token}", tags=["Share"])
@@ -573,6 +623,8 @@ async def get_shared_report(token: str, db: Session = Depends(get_db)):
     share = db.query(ShareToken).filter(ShareToken.token == token).first()
     if not share:
         raise HTTPException(status_code=404, detail="Share link not found or expired")
+    if share.expires_at and share.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=410, detail="This share link has expired")
 
     report = db.query(LabReport).filter(LabReport.id == share.report_id).first()
     if not report:
@@ -872,6 +924,30 @@ async def get_dashboard_stats(
     total = len(all_values) or 1
     health_score = int((normal / total) * 100) if all_values else None
 
+    # Compute per-system health scores
+    SYSTEM_CATEGORY_MAP = {
+        "Cardiovascular": ["Cardiac", "Lipid Panel", "BNP", "Troponin"],
+        "Metabolic":      ["CMP", "Diabetes", "HbA1c", "Glucose"],
+        "Kidney":         ["Kidney", "Creatinine", "BUN", "eGFR"],
+        "Liver":          ["Liver", "LFT", "Hepatic", "ALT", "AST"],
+        "Blood / CBC":    ["CBC"],
+        "Thyroid":        ["Thyroid", "Hormones", "TSH"],
+    }
+    system_scores = {}
+    for system, categories in SYSTEM_CATEGORY_MAP.items():
+        matched = [
+            v for v in all_values
+            if any(
+                cat.lower() in (v.category or "").lower() or cat.lower() in v.test_name.lower()
+                for cat in categories
+            )
+        ]
+        if not matched:
+            system_scores[system] = None
+        else:
+            n = sum(1 for v in matched if v.status == "normal")
+            system_scores[system] = int((n / len(matched)) * 100)
+
     result = {
         "total_reports": total_reports,
         "total_values": len(all_values),
@@ -881,9 +957,228 @@ async def get_dashboard_stats(
         "last_report_date": last_report.created_at.isoformat() if last_report else None,
         "overall_health_score": health_score,
         "unread_alerts": unread_alerts,
+        "system_scores": system_scores,
     }
     set_stats_cache(effective_id, result)
     return result
+
+
+# ── Emergency Detection ───────────────────────────────────────────────────────
+
+EMERGENCY_THRESHOLDS = {
+    "troponin":      {"critical_high": 0.04},
+    "potassium":     {"critical_high": 6.0,   "critical_low": 2.5},
+    "sodium":        {"critical_high": 160,    "critical_low": 120},
+    "glucose":       {"critical_high": 500,    "critical_low": 40},
+    "hemoglobin":    {"critical_low": 7.0},
+    "platelet":      {"critical_low": 20000},
+    "creatinine":    {"critical_high": 10.0},
+    "inr":           {"critical_high": 5.0},
+    "ammonia":       {"critical_high": 150},
+    "calcium":       {"critical_high": 13.0,  "critical_low": 6.5},
+    "lactate":       {"critical_high": 4.0},
+    "bnp":           {"critical_high": 900},
+    "ph":            {"critical_high": 7.6,   "critical_low": 7.2},
+}
+
+
+def detect_emergency_values(values: list[dict]) -> list[dict]:
+    """Return values that exceed life-threatening emergency thresholds."""
+    emergencies = []
+    for v in values:
+        name = (v.get("test_name") or "").lower()
+        val = v.get("value")
+        if val is None:
+            continue
+        for key, thresholds in EMERGENCY_THRESHOLDS.items():
+            if key not in name:
+                continue
+            if "critical_high" in thresholds and val >= thresholds["critical_high"]:
+                emergencies.append({
+                    **v,
+                    "emergency_reason": f"{v.get('test_name')} is critically elevated — seek emergency care immediately",
+                })
+                break
+            if "critical_low" in thresholds and val <= thresholds["critical_low"]:
+                emergencies.append({
+                    **v,
+                    "emergency_reason": f"{v.get('test_name')} is critically low — seek emergency care immediately",
+                })
+                break
+    return emergencies
+
+
+# ── Value Deltas (vs. previous report) ────────────────────────────────────────
+
+@app.get("/api/report/{report_id}/deltas", tags=["History"])
+async def get_report_deltas(report_id: str, db: Session = Depends(get_db)):
+    """For each lab value in a report, return % delta vs. the same test in the previous report."""
+    report = db.query(LabReport).filter(LabReport.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    current_values = db.query(LabValue).filter(LabValue.report_id == report_id).all()
+
+    prev_report = (
+        db.query(LabReport)
+        .filter(
+            LabReport.patient_id == report.patient_id,
+            LabReport.created_at < report.created_at,
+        )
+        .order_by(LabReport.created_at.desc())
+        .first()
+    )
+    if not prev_report:
+        return {}
+
+    prev_values = db.query(LabValue).filter(LabValue.report_id == prev_report.id).all()
+    prev_map = {v.test_name.lower(): v for v in prev_values}
+
+    deltas = {}
+    for cv in current_values:
+        if cv.value is None:
+            continue
+        pv = prev_map.get(cv.test_name.lower())
+        if pv is None or pv.value is None or pv.value == 0:
+            continue
+        delta_pct = ((cv.value - pv.value) / abs(pv.value)) * 100
+        deltas[cv.test_name] = {
+            "delta_pct": round(delta_pct, 1),
+            "direction": "up" if delta_pct > 0.5 else "down" if delta_pct < -0.5 else "same",
+            "prev_value": pv.value,
+            "prev_date": prev_report.report_date.isoformat() if prev_report.report_date else prev_report.created_at.isoformat()[:10],
+        }
+    return deltas
+
+
+# ── Drug-Lab Interactions ─────────────────────────────────────────────────────
+
+@app.get("/api/report/{report_id}/interactions", tags=["Lab Analysis"])
+async def get_drug_interactions(report_id: str, db: Session = Depends(get_db)):
+    """Return stored drug-lab interaction warnings for a report."""
+    report = db.query(LabReport).filter(LabReport.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if not report.drug_interactions:
+        return []
+    return json.loads(report.drug_interactions)
+
+
+# ── Action Plan ───────────────────────────────────────────────────────────────
+
+@app.get("/api/report/{report_id}/action-plan", tags=["Lab Analysis"])
+async def get_action_plan(report_id: str, db: Session = Depends(get_db)):
+    """Return stored action plan for a report."""
+    report = db.query(LabReport).filter(LabReport.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if not report.action_plan:
+        return []
+    return json.loads(report.action_plan)
+
+
+# ── Referral Letter ───────────────────────────────────────────────────────────
+
+@app.get("/api/report/{report_id}/referral-letter", tags=["Export"])
+async def generate_referral_letter_stream(report_id: str, db: Session = Depends(get_db)):
+    """Stream a professional referral letter for a report. Caches the result."""
+    report = db.query(LabReport).filter(LabReport.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    patient = db.query(Patient).filter(Patient.id == report.patient_id).first()
+    values = db.query(LabValue).filter(LabValue.report_id == report_id).all()
+
+    patient_dict = {
+        "name": patient.name if patient else "Unknown",
+        "age": patient.age if patient else None,
+        "sex": patient.sex if patient else None,
+        "medical_conditions": (patient.medical_conditions or []) if patient else [],
+        "medications": (patient.medications or []) if patient else [],
+    }
+    report_dict = {
+        "report_date": report.report_date.isoformat() if report.report_date else None,
+        "created_at": report.created_at.isoformat(),
+        "lab_name": report.lab_name,
+    }
+    values_list = [
+        {"test_name": v.test_name, "value": v.value, "unit": v.unit, "status": v.status}
+        for v in values
+    ]
+
+    letter_buffer = []
+
+    async def generate():
+        async for chunk in ai_engine.generate_referral_letter(
+            patient=patient_dict,
+            report=report_dict,
+            lab_values=values_list,
+            ai_summary=report.ai_summary or "",
+        ):
+            letter_buffer.append(chunk)
+            yield f"data: {json.dumps({'type': 'text', 'content': chunk})}\n\n"
+
+        full_letter = "".join(letter_buffer)
+        report.referral_letter = full_letter
+        db.commit()
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.get("/api/report/{report_id}/referral-letter/pdf", tags=["Export"])
+async def download_referral_letter_pdf(report_id: str, db: Session = Depends(get_db)):
+    """Download cached referral letter as PDF (must generate first)."""
+    from pdf_generator import generate_letter_pdf
+    report = db.query(LabReport).filter(LabReport.id == report_id).first()
+    if not report or not report.referral_letter:
+        raise HTTPException(status_code=404, detail="Generate the referral letter first")
+    patient = db.query(Patient).filter(Patient.id == report.patient_id).first()
+    pdf_bytes = generate_letter_pdf(
+        report.referral_letter,
+        {"name": patient.name if patient else "Unknown"},
+        {"report_date": report.report_date.isoformat()[:10] if report.report_date else "Unknown"},
+    )
+    filename = f"Referral_Letter_{report_id[:8]}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ── Symptom History ───────────────────────────────────────────────────────────
+
+@app.get("/api/symptom-history", tags=["Symptom Analysis"])
+async def get_symptom_history(
+    patient_id: str = Query(default=DEMO_PATIENT_ID),
+    user: User | None = Depends(get_optional_user),
+    db: Session = Depends(get_db),
+):
+    """Return past diagnostic sessions for a patient."""
+    effective_id = resolve_patient_id(user, patient_id, db)
+    sessions = (
+        db.query(DiagnosticSession)
+        .filter(DiagnosticSession.patient_id == effective_id)
+        .order_by(DiagnosticSession.created_at.desc())
+        .limit(20)
+        .all()
+    )
+    return [
+        {
+            "id": s.id,
+            "symptoms": s.symptoms or [],
+            "urgency_level": s.urgency_level or "routine",
+            "ai_analysis_preview": (s.ai_analysis or "")[:400],
+            "ai_analysis": s.ai_analysis or "",
+            "created_at": s.created_at.isoformat(),
+        }
+        for s in sessions
+    ]
 
 
 # ── Startup / Shutdown ────────────────────────────────────────────────────────

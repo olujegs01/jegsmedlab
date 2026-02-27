@@ -4,15 +4,47 @@ import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import {
   Upload, FileText, Image, Loader2, CheckCircle,
-  AlertCircle, X, FlaskConical
+  AlertCircle, X, FlaskConical, AlertTriangle, Phone
 } from "lucide-react";
 import clsx from "clsx";
 import AIResponse from "./AIResponse";
+import ActionPlanTimeline from "./ActionPlanTimeline";
 
 interface LabUploaderProps {
   onReportUploaded: (reportId: string) => void;
   patientId?: string;
 }
+
+interface DrugInteraction {
+  medication: string;
+  affected_test: string;
+  current_value: number;
+  unit: string;
+  severity: string;
+  explanation: string;
+  recommendation: string;
+}
+
+interface ActionItem {
+  timeframe: string;
+  category: string;
+  action: string;
+  reason: string;
+  priority: string;
+}
+
+interface EmergencyValue {
+  test_name: string;
+  value: number;
+  unit: string;
+  emergency_reason: string;
+}
+
+const SEVERITY_COLORS: Record<string, string> = {
+  severe:   "border-red-300 bg-red-50 text-red-800",
+  moderate: "border-amber-300 bg-amber-50 text-amber-800",
+  mild:     "border-yellow-200 bg-yellow-50 text-yellow-800",
+};
 
 export default function LabUploader({ onReportUploaded, patientId = "demo-patient" }: LabUploaderProps) {
   const [file, setFile] = useState<File | null>(null);
@@ -22,6 +54,9 @@ export default function LabUploader({ onReportUploaded, patientId = "demo-patien
   const [reportId, setReportId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [emergencyValues, setEmergencyValues] = useState<EmergencyValue[]>([]);
+  const [drugInteractions, setDrugInteractions] = useState<DrugInteraction[]>([]);
+  const [actionPlan, setActionPlan] = useState<ActionItem[]>([]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -30,6 +65,9 @@ export default function LabUploader({ onReportUploaded, patientId = "demo-patien
       setError(null);
       setDone(false);
       setReportId(null);
+      setEmergencyValues([]);
+      setDrugInteractions([]);
+      setActionPlan([]);
     }
   }, []);
 
@@ -55,6 +93,9 @@ export default function LabUploader({ onReportUploaded, patientId = "demo-patien
     setAiText("");
     setError(null);
     setDone(false);
+    setEmergencyValues([]);
+    setDrugInteractions([]);
+    setActionPlan([]);
 
     const formData = new FormData();
     formData.append("file", file);
@@ -92,6 +133,12 @@ export default function LabUploader({ onReportUploaded, patientId = "demo-patien
               onReportUploaded(data.report_id);
             } else if (data.type === "text") {
               setAiText((prev) => prev + data.content);
+            } else if (data.type === "emergency") {
+              setEmergencyValues(data.values || []);
+            } else if (data.type === "drug_interactions") {
+              setDrugInteractions(data.data || []);
+            } else if (data.type === "action_plan") {
+              setActionPlan(data.data || []);
             } else if (data.type === "done") {
               setDone(true);
               setStreaming(false);
@@ -114,13 +161,63 @@ export default function LabUploader({ onReportUploaded, patientId = "demo-patien
     setReportId(null);
     setUploading(false);
     setStreaming(false);
+    setEmergencyValues([]);
+    setDrugInteractions([]);
+    setActionPlan([]);
   };
 
   const isImage = file?.type.startsWith("image/");
-  const isPdf = file?.type === "application/pdf";
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Emergency Overlay */}
+      {emergencyValues.length > 0 && (
+        <div className="fixed inset-0 bg-red-950/95 z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-7 max-w-lg w-full shadow-2xl border-4 border-red-500">
+            <div className="flex justify-center mb-4">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center animate-pulse">
+                <AlertCircle className="w-9 h-9 text-red-600" />
+              </div>
+            </div>
+            <h2 className="text-2xl font-bold text-red-800 text-center mb-1">
+              CRITICAL VALUES DETECTED
+            </h2>
+            <p className="text-red-700 text-center text-sm font-medium mb-5">
+              One or more lab values require immediate medical attention.
+            </p>
+
+            <div className="space-y-2 mb-6">
+              {emergencyValues.map((v, i) => (
+                <div key={i} className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                  <div className="flex justify-between items-start">
+                    <span className="font-bold text-red-800 text-sm">{v.test_name}</span>
+                    <span className="font-bold text-red-700 text-sm">{v.value} {v.unit}</span>
+                  </div>
+                  <p className="text-xs text-red-600 mt-1">{v.emergency_reason}</p>
+                </div>
+              ))}
+            </div>
+
+            <a
+              href="tel:911"
+              className="flex items-center justify-center gap-2 w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl text-lg mb-3 transition-colors"
+            >
+              <Phone className="w-5 h-5" />
+              Call 911 Now
+            </a>
+            <p className="text-sm font-semibold text-red-700 text-center mb-4">
+              OR go to your nearest Emergency Room immediately.
+            </p>
+            <button
+              onClick={() => setEmergencyValues([])}
+              className="w-full text-sm text-slate-400 hover:text-slate-600 underline transition-colors"
+            >
+              I understand — continue viewing report
+            </button>
+          </div>
+        </div>
+      )}
+
       <div>
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
           <FlaskConical className="w-6 h-6 text-blue-600" />
@@ -134,7 +231,6 @@ export default function LabUploader({ onReportUploaded, patientId = "demo-patien
       <div className="grid lg:grid-cols-5 gap-6">
         {/* Upload Panel */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Dropzone */}
           {!file ? (
             <div
               {...getRootProps()}
@@ -157,10 +253,7 @@ export default function LabUploader({ onReportUploaded, patientId = "demo-patien
               <p className="text-sm text-slate-500 mb-4">or click to browse files</p>
               <div className="flex flex-wrap justify-center gap-2">
                 {["PDF", "JPEG", "PNG", "WebP", "TXT"].map((t) => (
-                  <span
-                    key={t}
-                    className="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full font-medium"
-                  >
+                  <span key={t} className="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full font-medium">
                     {t}
                   </span>
                 ))}
@@ -183,10 +276,7 @@ export default function LabUploader({ onReportUploaded, patientId = "demo-patien
                     {(file.size / 1024 / 1024).toFixed(2)} MB · {file.type}
                   </p>
                 </div>
-                <button
-                  onClick={reset}
-                  className="text-slate-400 hover:text-slate-600 p-1 rounded"
-                >
+                <button onClick={reset} className="text-slate-400 hover:text-slate-600 p-1 rounded">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -203,15 +293,9 @@ export default function LabUploader({ onReportUploaded, patientId = "demo-patien
                   )}
                 >
                   {uploading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Uploading & Analyzing...
-                    </>
+                    <><Loader2 className="w-4 h-4 animate-spin" />Uploading & Analyzing...</>
                   ) : (
-                    <>
-                      <FlaskConical className="w-4 h-4" />
-                      Analyze with AI
-                    </>
+                    <><FlaskConical className="w-4 h-4" />Analyze with AI</>
                   )}
                 </button>
               )}
@@ -233,9 +317,9 @@ export default function LabUploader({ onReportUploaded, patientId = "demo-patien
                 "Extracts all lab values automatically",
                 "Explains each test in plain English",
                 "Flags normal, borderline & critical values",
-                "Identifies patterns across multiple tests",
-                "Provides personalized recommendations",
-                "Suggests questions for your doctor",
+                "Detects drug-lab interactions",
+                "Creates your personal action plan",
+                "Generates doctor referral letter",
               ].map((item) => (
                 <li key={item} className="flex items-start gap-2 text-xs text-slate-600">
                   <CheckCircle className="w-3.5 h-3.5 text-emerald-500 mt-0.5 flex-shrink-0" />
@@ -273,6 +357,42 @@ export default function LabUploader({ onReportUploaded, patientId = "demo-patien
               reportId={reportId}
             />
           )}
+
+          {/* Drug Interactions Warning */}
+          {drugInteractions.length > 0 && (
+            <div className="mt-4 bg-white rounded-2xl border border-amber-200 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-amber-100 flex items-center gap-3 bg-amber-50">
+                <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-amber-900">Drug-Lab Interactions Detected</h3>
+                  <p className="text-xs text-amber-700">{drugInteractions.length} interaction{drugInteractions.length > 1 ? "s" : ""} found with your medications</p>
+                </div>
+              </div>
+              <div className="p-4 space-y-3">
+                {drugInteractions.map((interaction, i) => (
+                  <div key={i} className={clsx("rounded-xl border p-4", SEVERITY_COLORS[interaction.severity] || SEVERITY_COLORS.mild)}>
+                    <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
+                      <span className="font-semibold text-sm">
+                        {interaction.medication} → {interaction.affected_test}
+                      </span>
+                      <span className="text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-white/60">
+                        {interaction.severity}
+                      </span>
+                    </div>
+                    <p className="text-sm mt-1">{interaction.explanation}</p>
+                    <p className="text-xs mt-2 font-medium opacity-80">
+                      Recommendation: {interaction.recommendation}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Action Plan Timeline */}
+          {actionPlan.length > 0 && <ActionPlanTimeline items={actionPlan} />}
         </div>
       </div>
     </div>

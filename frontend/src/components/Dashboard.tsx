@@ -5,7 +5,7 @@ import type { Tab } from "@/types";
 import {
   Activity, Upload, MessageCircle, TrendingUp,
   AlertTriangle, CheckCircle, AlertCircle, Zap,
-  FlaskConical, Heart, Brain, Shield
+  FlaskConical, Heart, Brain, Shield, Droplets, Dna
 } from "lucide-react";
 import clsx from "clsx";
 import KnowledgeStats from "./KnowledgeStats";
@@ -18,6 +18,30 @@ interface Stats {
   normal_count: number;
   last_report_date: string | null;
   overall_health_score: number | null;
+  system_scores?: Record<string, number | null>;
+}
+
+const SYSTEMS = [
+  { key: "Cardiovascular", icon: Heart,     color: "text-red-600",    bg: "bg-red-50",    ring: "ring-red-200"    },
+  { key: "Metabolic",      icon: Zap,       color: "text-amber-600",  bg: "bg-amber-50",  ring: "ring-amber-200"  },
+  { key: "Kidney",         icon: Droplets,  color: "text-blue-600",   bg: "bg-blue-50",   ring: "ring-blue-200"   },
+  { key: "Liver",          icon: Shield,    color: "text-emerald-600",bg: "bg-emerald-50",ring: "ring-emerald-200"},
+  { key: "Blood / CBC",    icon: FlaskConical, color: "text-indigo-600", bg: "bg-indigo-50", ring: "ring-indigo-200"},
+  { key: "Thyroid",        icon: Brain,     color: "text-purple-600", bg: "bg-purple-50", ring: "ring-purple-200" },
+];
+
+function scoreColor(score: number | null): string {
+  if (score == null) return "text-slate-400";
+  if (score >= 80) return "text-emerald-600";
+  if (score >= 60) return "text-amber-600";
+  return "text-red-600";
+}
+
+function scoreGradient(score: number | null): string {
+  if (score == null) return "from-slate-200 to-slate-200";
+  if (score >= 80) return "from-emerald-400 to-emerald-600";
+  if (score >= 60) return "from-amber-400 to-amber-600";
+  return "from-red-400 to-red-600";
 }
 
 interface DashboardProps {
@@ -156,6 +180,44 @@ export default function Dashboard({ setActiveTab, patientId = "demo-patient" }: 
             icon={CheckCircle}
             color="bg-emerald-50 text-emerald-600"
           />
+        </div>
+      )}
+
+      {/* Health System Breakdown */}
+      {!loading && stats && stats.total_reports > 0 && (
+        <div>
+          <h2 className="text-lg font-bold text-slate-900 mb-3">Health by Body System</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {SYSTEMS.map(({ key, icon: Icon, color, bg, ring }) => {
+              const score = stats.system_scores?.[key] ?? null;
+              return (
+                <div key={key} className={clsx(
+                  "bg-white rounded-xl border border-slate-200 p-4 flex flex-col items-center gap-2 text-center ring-1",
+                  ring,
+                )}>
+                  <div className={clsx("w-10 h-10 rounded-xl flex items-center justify-center", bg)}>
+                    <Icon className={clsx("w-5 h-5", color)} />
+                  </div>
+                  <div>
+                    {score != null ? (
+                      <>
+                        <div className={clsx("text-xl font-bold", scoreColor(score))}>{score}%</div>
+                        <div className="w-full h-1.5 bg-slate-100 rounded-full mt-1 overflow-hidden">
+                          <div
+                            className={clsx("h-full rounded-full bg-gradient-to-r", scoreGradient(score))}
+                            style={{ width: `${score}%` }}
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-sm text-slate-400 font-medium">No data</div>
+                    )}
+                    <p className="text-xs text-slate-500 mt-1 font-medium leading-tight">{key}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

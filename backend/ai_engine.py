@@ -6,6 +6,7 @@ symptom checking, and medical Q&A with RAG-enhanced context.
 import anthropic
 import json
 import os
+from datetime import datetime
 from typing import AsyncGenerator
 import logging
 
@@ -366,3 +367,158 @@ Keep it concise and patient-friendly."""
                 return block.text
 
         return "Trend analysis unavailable."
+
+    async def detect_drug_interactions(
+        self,
+        medications: list[str],
+        lab_values: list[dict],
+    ) -> list[dict]:
+        """Detect clinically significant drug-lab interactions. Returns structured JSON list."""
+        if not medications or not lab_values:
+            return []
+
+        prompt = f"""Given this patient's medications and lab results, identify clinically significant
+drug-lab interactions. Explain each in plain English as if speaking directly to the patient.
+
+MEDICATIONS: {', '.join(medications)}
+
+LAB VALUES:
+{json.dumps([{{'test': v.get('test_name'), 'value': v.get('value'), 'unit': v.get('unit'), 'status': v.get('status')}} for v in lab_values], indent=2)}
+
+Return ONLY a JSON array (can be empty []) with this structure:
+[
+  {{
+    "medication": "Metformin",
+    "affected_test": "Vitamin B12",
+    "current_value": 245,
+    "unit": "pg/mL",
+    "severity": "moderate",
+    "explanation": "Metformin can reduce Vitamin B12 absorption over time. Your current level of 245 pg/mL is on the lower end of normal. Consider asking your doctor about B12 supplementation.",
+    "recommendation": "Ask your doctor to monitor B12 annually"
+  }}
+]
+
+severity must be: "mild", "moderate", or "severe".
+Only include interactions supported by clinical evidence. Return ONLY the JSON array, no extra text."""
+
+        response = await self.client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = ""
+        for block in response.content:
+            if hasattr(block, "text"):
+                text = block.text
+                break
+        try:
+            if "```json" in text:
+                text = text.split("```json")[1].split("```")[0].strip()
+            elif "```" in text:
+                text = text.split("```")[1].split("```")[0].strip()
+            return json.loads(text)
+        except Exception:
+            return []
+
+    async def generate_action_plan(
+        self,
+        lab_values: list[dict],
+        patient_info: dict,
+        ai_summary: str,
+    ) -> list[dict]:
+        """Generate a structured dated action plan from lab results. Returns JSON list."""
+        abnormal = [v for v in lab_values if v.get("status") not in ("normal",)]
+
+        prompt = f"""Based on these lab results, create a concrete, actionable timeline plan for this patient.
+
+PATIENT: Age {patient_info.get('age', '?')}, {patient_info.get('sex', '?')}
+MEDICATIONS: {', '.join(patient_info.get('medications', [])) or 'None'}
+ABNORMAL VALUES: {json.dumps([{{'test': v.get('test_name'), 'value': v.get('value'), 'status': v.get('status')}} for v in abnormal])}
+AI SUMMARY EXCERPT: {ai_summary[:600] if ai_summary else 'N/A'}
+
+Return ONLY a JSON array of 4-7 action items:
+[
+  {{
+    "timeframe": "Today",
+    "category": "lifestyle",
+    "action": "Avoid high-sodium foods and stay well hydrated",
+    "reason": "Your sodium level is elevated",
+    "priority": "high"
+  }}
+]
+
+timeframe examples: "Today", "This week", "In 2 weeks", "In 1 month", "In 3 months", "In 6 months"
+category must be one of: "lifestyle", "medical", "medication", "retest", "specialist", "monitoring"
+priority must be: "high", "medium", or "low"
+Return ONLY the JSON array, no extra text."""
+
+        response = await self.client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = ""
+        for block in response.content:
+            if hasattr(block, "text"):
+                text = block.text
+                break
+        try:
+            if "```json" in text:
+                text = text.split("```json")[1].split("```")[0].strip()
+            elif "```" in text:
+                text = text.split("```")[1].split("```")[0].strip()
+            return json.loads(text)
+        except Exception:
+            return []
+
+    async def generate_referral_letter(
+        self,
+        patient: dict,
+        report: dict,
+        lab_values: list[dict],
+        ai_summary: str,
+    ) -> AsyncGenerator[str, None]:
+        """Stream a professional GP referral letter based on lab findings."""
+        abnormal = [v for v in lab_values if v.get("status") not in ("normal",)]
+        abnormal_text = "\n".join(
+            f"  - {v.get('test_name')}: {v.get('value')} {v.get('unit', '')} ({v.get('status', '').replace('_', ' ')})"
+            for v in abnormal
+        ) or "  No abnormal values detected"
+
+        today = datetime.now().strftime("%B %d, %Y") if True else "Unknown"
+
+        prompt = f"""Generate a professional GP/specialist referral letter for the following patient.
+Write it as a formal medical letter from JegsMedLab AI, today's date: {today}.
+
+PATIENT: {patient.get('name', 'Unknown')}, Age: {patient.get('age', 'Unknown')}, Sex: {patient.get('sex', 'Unknown')}
+CONDITIONS: {', '.join(patient.get('medical_conditions', [])) or 'None reported'}
+MEDICATIONS: {', '.join(patient.get('medications', [])) or 'None reported'}
+REPORT DATE: {report.get('report_date') or report.get('created_at', 'Unknown')[:10]}
+LAB FACILITY: {report.get('lab_name') or 'Unknown'}
+
+ABNORMAL / CONCERNING VALUES:
+{abnormal_text}
+
+AI ANALYSIS SUMMARY:
+{ai_summary[:1200] if ai_summary else 'Not available'}
+
+Write a formal referral letter with these sections:
+1. Date and salutation ("Dear Healthcare Provider," or "To Whom It May Concern,")
+2. Re: line — patient name, age, and report date
+3. Purpose — why clinical attention is warranted
+4. Key Findings — concise summary of the most important abnormal values with clinical context
+5. AI Interpretation — what the pattern of results may suggest
+6. Recommended Next Steps — specific tests, specialist referral, or follow-up timeline
+7. Closing note — this is AI-assisted analysis for reference; must be reviewed by a licensed clinician
+8. Sign-off: "JegsMedLab Clinical AI | jegsmedlab.vercel.app"
+
+Use professional but clear medical language. Keep it under 400 words."""
+
+        async with self.client.messages.stream(
+            model="claude-opus-4-6",
+            max_tokens=1200,
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt}],
+        ) as stream:
+            async for text in stream.text_stream:
+                yield text

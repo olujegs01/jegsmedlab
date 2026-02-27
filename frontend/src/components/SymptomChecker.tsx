@@ -58,6 +58,8 @@ export default function SymptomChecker({ patientId = "demo-patient" }: { patient
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [pastSessions, setPastSessions] = useState<any[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   // Keep Render backend warm while user is on this page
   useEffect(() => {
@@ -65,6 +67,14 @@ export default function SymptomChecker({ patientId = "demo-patient" }: { patient
     const interval = setInterval(() => fetch("/api/health").catch(() => {}), 60000);
     return () => clearInterval(interval);
   }, []);
+
+  // Load past symptom sessions
+  useEffect(() => {
+    fetch(`/api/symptom-history?patient_id=${patientId}`)
+      .then((r) => r.json())
+      .then((d) => Array.isArray(d) && setPastSessions(d))
+      .catch(() => {});
+  }, [patientId, done]);
 
   const toggleSymptom = (s: string) => {
     setSelectedSymptoms((prev) =>
@@ -186,6 +196,58 @@ export default function SymptomChecker({ patientId = "demo-patient" }: { patient
           );
         })}
       </div>
+
+      {/* Past Analyses Toggle */}
+      {pastSessions.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="flex items-center gap-2 text-sm font-medium text-purple-600 hover:text-purple-700 transition-colors"
+          >
+            <ChevronRight className={clsx("w-4 h-4 transition-transform", showHistory && "rotate-90")} />
+            Past Analyses ({pastSessions.length})
+          </button>
+          {showHistory && (
+            <div className="mt-3 space-y-2">
+              {pastSessions.map((s) => (
+                <div key={s.id} className="bg-white border border-slate-200 rounded-xl p-4">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex flex-wrap gap-1">
+                      {(s.symptoms || []).slice(0, 4).map((sym: string) => (
+                        <span key={sym} className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">{sym}</span>
+                      ))}
+                      {s.symptoms?.length > 4 && (
+                        <span className="text-xs text-slate-400">+{s.symptoms.length - 4} more</span>
+                      )}
+                    </div>
+                    <span className={clsx(
+                      "text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap",
+                      s.urgency_level === "emergency" ? "bg-red-100 text-red-700" :
+                      s.urgency_level === "urgent" ? "bg-orange-100 text-orange-700" :
+                      s.urgency_level === "schedule_soon" ? "bg-amber-100 text-amber-700" :
+                      "bg-emerald-100 text-emerald-700"
+                    )}>
+                      {s.urgency_level?.replace("_", " ") || "routine"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 line-clamp-2">{s.ai_analysis_preview}</p>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-xs text-slate-400">
+                      {new Date(s.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </span>
+                    <button
+                      onClick={() => { setAiText(s.ai_analysis); setDone(true); setShowHistory(false); }}
+                      className="text-xs text-purple-600 font-medium hover:underline"
+                    >
+                      View Full Analysis →
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Main content */}
       {!aiText && !loading ? (

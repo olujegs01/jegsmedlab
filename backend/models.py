@@ -55,6 +55,9 @@ class LabReport(Base):
     raw_text = Column(Text, nullable=True)
     ai_summary = Column(Text, nullable=True)
     overall_status = Column(String, default="normal")
+    drug_interactions = Column(Text, nullable=True)   # JSON list of interaction warnings
+    action_plan = Column(Text, nullable=True)          # JSON list of action plan items
+    referral_letter = Column(Text, nullable=True)      # Cached referral letter text
     created_at = Column(DateTime, default=datetime.utcnow)
 
     patient = relationship("Patient", back_populates="reports")

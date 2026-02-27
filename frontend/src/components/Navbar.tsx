@@ -42,6 +42,7 @@ export default function Navbar({ activeTab, setActiveTab, onViewReport }: Navbar
   }, [userMenuOpen]);
 
   return (
+    <>
     <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
@@ -73,7 +74,7 @@ export default function Navbar({ activeTab, setActiveTab, onViewReport }: Navbar
                   )}
                 >
                   <Icon className={clsx("w-4 h-4", isActive ? "text-blue-600" : item.color)} />
-                  <span className="hidden lg:block">{item.label}</span>
+                  <span className="hidden md:block">{item.label}</span>
                 </button>
               );
             })}
@@ -163,5 +164,30 @@ export default function Navbar({ activeTab, setActiveTab, onViewReport }: Navbar
         </div>
       </div>
     </nav>
+
+    {/* Mobile bottom navigation */}
+    <div className="fixed bottom-0 left-0 right-0 md:hidden bg-white border-t border-slate-200 z-50 safe-bottom">
+      <div className="grid grid-cols-6 h-16">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          const shortLabel = item.label === "Analyze Labs" ? "Labs" : item.label === "Dashboard" ? "Home" : item.label;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={clsx(
+                "flex flex-col items-center justify-center gap-0.5 text-[9px] font-semibold transition-colors px-1",
+                isActive ? "text-blue-600" : "text-slate-400"
+              )}
+            >
+              <Icon className={clsx("w-5 h-5", isActive ? "text-blue-600" : "text-slate-400")} />
+              <span className="leading-none">{shortLabel}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  </>
   );
 }
