@@ -13,6 +13,6 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: CORS_ORIGINS
-        value: https://your-app.vercel.app
+        value: https://jegsmedlab.vercel.app
       - key: ANONYMIZED_TELEMETRY
         value: "False"
