@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Activity, Plus, X, Loader2, AlertTriangle, Stethoscope, Lightbulb, ClipboardList, ChevronRight } from "lucide-react";
 import clsx from "clsx";
 import AIResponse from "./AIResponse";
@@ -58,6 +58,13 @@ export default function SymptomChecker({ patientId = "demo-patient" }: { patient
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+
+  // Keep Render backend warm while user is on this page
+  useEffect(() => {
+    fetch("/api/health").catch(() => {});
+    const interval = setInterval(() => fetch("/api/health").catch(() => {}), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const toggleSymptom = (s: string) => {
     setSelectedSymptoms((prev) =>

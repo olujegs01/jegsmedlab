@@ -275,8 +275,8 @@ Provide personalized next steps in two parts:
 *This analysis is educational guidance from an AI trained on medical knowledge — not a clinical diagnosis. Always consult a licensed healthcare provider for medical decisions.*"""
 
         async with self.client.messages.stream(
-            model="claude-opus-4-6",
-            max_tokens=3000,
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1500,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],
         ) as stream:
