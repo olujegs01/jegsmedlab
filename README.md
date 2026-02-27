@@ -35,7 +35,7 @@ An AI-powered medical lab result interpretation platform combining features from
 
 ### 1. Setup
 ```bash
-cd med-lab-ai
+cd jegsmedlab
 chmod +x setup.sh && ./setup.sh
 ```
 
