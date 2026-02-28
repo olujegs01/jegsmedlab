@@ -22,11 +22,10 @@ services:
         value: https://jegsmedlab.vercel.app,http://localhost:3000,http://localhost:3001
       - key: ANONYMIZED_TELEMETRY
         value: "False"
-      # SQLite path — Render free tier has ephemeral disk
-      # IMPORTANT: For data persistence, add a Render Disk and set:
-      #   DATABASE_URL: sqlite:////data/jegsmedlab.db
-      # Or connect a Render PostgreSQL instance and set DATABASE_URL to the postgres:// URL
+      # DATABASE_URL — set this in the Render dashboard to your PostgreSQL Internal Database URL
+      # e.g. postgres://jegsmedlab:password@dpg-xxxxxx-a/jegsmedlab
+      # Falls back to SQLite (ephemeral) if not set.
       - key: DATABASE_URL
-        value: sqlite:///./jegsmedlab.db
+        sync: false
       - key: CHROMA_DB_PATH
         value: ./chroma_db
