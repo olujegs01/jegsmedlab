@@ -3,11 +3,11 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://jegsmedlab.onrender.com"
+    "NEXT_PUBLIC_API_URL": "https://jegsmedlab-backend.up.railway.app"
   },
   "build": {
     "env": {
-      "NEXT_PUBLIC_API_URL": "https://jegsmedlab.onrender.com"
+      "NEXT_PUBLIC_API_URL": "https://jegsmedlab-backend.up.railway.app"
     }
   }
 }
