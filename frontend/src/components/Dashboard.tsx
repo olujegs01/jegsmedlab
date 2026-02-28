@@ -94,14 +94,20 @@ const platformFeatures = [
 export default function Dashboard({ setActiveTab, patientId = "demo-patient" }: DashboardProps) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
+    setLoading(true);
+    setError(false);
     fetch(`/api/dashboard-stats?patient_id=${patientId}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Server error");
+        return r.json();
+      })
       .then((d) => setStats(d))
-      .catch(() => {})
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
-  }, []);
+  }, [patientId]);
 
   const healthColor =
     stats?.overall_health_score == null
@@ -122,8 +128,8 @@ export default function Dashboard({ setActiveTab, patientId = "demo-patient" }: 
         </div>
         <div className="relative z-10">
           <div className="flex items-center gap-2 text-blue-200 text-sm font-medium mb-3">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-            AI System Online · Claude Opus 4.6 · RAG-Enhanced
+            <div className={`w-2 h-2 rounded-full ${error ? "bg-amber-400" : "bg-green-400 animate-pulse"}`} />
+            {error ? "Connecting to AI system…" : "AI System Online · Claude Opus 4.6 · RAG-Enhanced"}
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold mb-2">
             Your Personal Health Intelligence Platform

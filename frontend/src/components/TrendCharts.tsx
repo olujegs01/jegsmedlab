@@ -264,14 +264,20 @@ function TrendCard({ trend, chartType }: { trend: TrendData; chartType: "line" |
 export default function TrendCharts({ patientId = "demo-patient" }: { patientId?: string }) {
   const [trends, setTrends] = useState<TrendData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [filter, setFilter] = useState<string>("all");
   const [chartType, setChartType] = useState<"line" | "area">("area");
 
   useEffect(() => {
+    setLoading(true);
+    setError(false);
     fetch(`/api/trends?patient_id=${patientId}`)
-      .then((r) => r.json())
-      .then((d) => setTrends(d))
-      .catch(() => {})
+      .then((r) => {
+        if (!r.ok) throw new Error();
+        return r.json();
+      })
+      .then((d) => Array.isArray(d) ? setTrends(d) : setTrends([]))
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, [patientId]);
 
@@ -381,6 +387,13 @@ export default function TrendCharts({ patientId = "demo-patient" }: { patientId?
         <div className="bg-white border border-slate-200 rounded-xl p-12 text-center">
           <Loader2 className="w-6 h-6 text-teal-500 animate-spin mx-auto mb-3" />
           <p className="text-slate-400 text-sm">Loading trend data...</p>
+        </div>
+      ) : error ? (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-12 text-center">
+          <BarChart3 className="w-10 h-10 text-amber-300 mx-auto mb-4" />
+          <p className="text-amber-700 font-medium">Server is starting up</p>
+          <p className="text-amber-600 text-sm mt-1">The AI backend may be warming up. Please wait a moment and refresh.</p>
+          <button onClick={() => { setLoading(true); setError(false); fetch(`/api/trends?patient_id=${patientId}`).then(r => r.ok ? r.json() : []).then(d => setTrends(d)).catch(() => setError(true)).finally(() => setLoading(false)); }} className="mt-4 text-sm font-medium text-amber-700 underline">Try again</button>
         </div>
       ) : trends.length === 0 ? (
         <div className="bg-white border border-slate-200 rounded-xl p-12 text-center">

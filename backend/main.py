@@ -50,8 +50,13 @@ Base.metadata.create_all(bind=engine)
 
 # Run safe column migrations (adds new columns if they don't exist yet)
 def run_migrations():
+    """Only runs for SQLite — PostgreSQL migrations are handled via SQLAlchemy create_all."""
     import sqlite3
-    db_path = os.getenv("DATABASE_URL", "sqlite:///./medlab.db").replace("sqlite:///", "")
+    raw_url = os.getenv("DATABASE_URL", "sqlite:///./jegsmedlab.db")
+    # Skip migration for non-SQLite databases
+    if not raw_url.startswith("sqlite"):
+        return
+    db_path = raw_url.replace("sqlite:///", "")
     if not db_path.startswith("/"):
         db_path = "./" + db_path.lstrip("./")
     try:
@@ -81,9 +86,16 @@ app = FastAPI(
     version="2.0.0",
 )
 
+# CORS — allow the Vercel frontend + all Vercel preview URLs + localhost.
+# All production frontend requests are proxied server-side by Next.js so CORS is
+# mainly needed for direct API access (Swagger UI, Postman, mobile clients, etc.).
+_raw_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001")
+_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:3000").split(","),
+    allow_origins=_allowed_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",   # covers all Vercel preview deployments
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -191,6 +203,12 @@ def generate_alerts_for_values(
 
 @app.get("/health")
 async def health_check():
+    return {"status": "healthy", "service": "JegsMedLab", "version": "2.0.0"}
+
+
+@app.get("/api/health")
+async def api_health_check():
+    """Alias for /health — used by frontend keep-alive pings via the /api/* proxy."""
     return {"status": "healthy", "service": "JegsMedLab", "version": "2.0.0"}
 
 

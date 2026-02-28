@@ -6,14 +6,27 @@ services:
     plan: free
     runtime: python3.11
     buildCommand: cd backend && pip install -r requirements.txt
-    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
     healthCheckPath: /health
     envVars:
       - key: ANTHROPIC_API_KEY
         sync: false
+      # IMPORTANT: Set this ONCE in the Render dashboard and never change it.
+      # Using generateValue: true re-generates the key on every deploy, invalidating all user sessions.
+      # Set it manually in the Render dashboard: Settings → Environment → SECRET_KEY = <long-random-string>
       - key: SECRET_KEY
-        generateValue: true
+        sync: false
+      # Allow all Vercel deployments (preview + production) and localhost
+      # The backend also supports allow_origin_regex for *.vercel.app automatically
       - key: CORS_ORIGINS
-        value: https://jegsmedlab.vercel.app
+        value: https://jegsmedlab.vercel.app,http://localhost:3000,http://localhost:3001
       - key: ANONYMIZED_TELEMETRY
         value: "False"
+      # SQLite path — Render free tier has ephemeral disk
+      # IMPORTANT: For data persistence, add a Render Disk and set:
+      #   DATABASE_URL: sqlite:////data/jegsmedlab.db
+      # Or connect a Render PostgreSQL instance and set DATABASE_URL to the postgres:// URL
+      - key: DATABASE_URL
+        value: sqlite:///./jegsmedlab.db
+      - key: CHROMA_DB_PATH
+        value: ./chroma_db

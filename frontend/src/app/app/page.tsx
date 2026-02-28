@@ -11,6 +11,7 @@ import AskAI from "@/components/AskAI";
 import TrendCharts from "@/components/TrendCharts";
 import type { Tab } from "@/types";
 import OnboardingModal from "@/components/OnboardingModal";
+import BackendStatus from "@/components/BackendStatus";
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
@@ -24,6 +25,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
+      <BackendStatus />
       <OnboardingModal />
       <Navbar
         activeTab={activeTab}

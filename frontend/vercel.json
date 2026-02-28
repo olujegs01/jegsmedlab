@@ -4,5 +4,10 @@
   "outputDirectory": ".next",
   "env": {
     "NEXT_PUBLIC_API_URL": "https://jegsmedlab.onrender.com"
+  },
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_API_URL": "https://jegsmedlab.onrender.com"
+    }
   }
 }
