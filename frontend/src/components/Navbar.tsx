@@ -4,12 +4,13 @@ import type { Tab } from "@/types";
 import {
   LayoutDashboard, Upload, Activity, History,
   TrendingUp, MessageCircle, FlaskConical,
-  LogOut, User, ChevronDown,
+  LogOut, User, ChevronDown, Hospital,
 } from "lucide-react";
 import clsx from "clsx";
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import AlertBell from "./AlertBell";
+import Link from "next/link";
 
 interface NavbarProps {
   activeTab: Tab;
@@ -52,7 +53,7 @@ export default function Navbar({ activeTab, setActiveTab, onViewReport }: Navbar
               <FlaskConical className="w-5 h-5 text-white" />
             </div>
             <div className="hidden sm:block">
-              <span className="font-bold text-slate-900 text-lg leading-tight">JegsMedLab</span>
+              <span className="font-bold text-slate-900 text-lg leading-tight">JegsMed</span>
               <p className="text-xs text-slate-400 leading-tight">Intelligent Lab Interpreter</p>
             </div>
           </div>
@@ -80,8 +81,18 @@ export default function Navbar({ activeTab, setActiveTab, onViewReport }: Navbar
             })}
           </div>
 
-          {/* Right side: alerts + user */}
+          {/* Right side: ED Gateway link + alerts + user */}
           <div className="flex items-center gap-2">
+            {/* ED Gateway link */}
+            <Link
+              href="/ed"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 transition-all"
+              title="ED Gateway — MediScan Platform"
+            >
+              <Hospital className="w-4 h-4 text-teal-600" />
+              <span className="hidden lg:block">ED Gateway</span>
+            </Link>
+
             {/* Alert Bell */}
             <AlertBell patientId={patientId} onViewReport={onViewReport} />
 

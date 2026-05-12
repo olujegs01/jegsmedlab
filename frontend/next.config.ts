@@ -6,6 +6,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const nextConfig: NextConfig = {
   async rewrites() {
     return [
+      // ED Gateway — MediScan backend proxy
+      {
+        source: "/ed-api/:path*",
+        destination: "https://mediscan-backend-m6lr.onrender.com/:path*",
+      },
       // Health check — must come BEFORE the generic /api/:path* rule
       // Backend exposes /health (not /api/health), so we map both
       {

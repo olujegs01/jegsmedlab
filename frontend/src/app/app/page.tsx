@@ -55,8 +55,8 @@ function AppContent() {
       </main>
 
       <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-400">
-        <p>JegsMedLab is for educational purposes only. Always consult a qualified healthcare provider for diagnosis and treatment.</p>
-        <p className="mt-1">Powered by Claude Opus 4.6 · © 2025 JegsMedLab</p>
+        <p>JegsMed is for educational purposes only. Always consult a qualified healthcare provider for diagnosis and treatment.</p>
+        <p className="mt-1">Powered by Claude Opus 4.6 · © 2025 JegsMed</p>
       </footer>
     </div>
   );

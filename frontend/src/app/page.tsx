@@ -3,15 +3,15 @@ import type { Metadata } from "next";
 import {
   Upload, Activity, TrendingUp, MessageCircle,
   Shield, Zap, CheckCircle, Star, ArrowRight,
-  FlaskConical, Brain, Heart, Lock, RefreshCw, FileText
+  FlaskConical, Brain, Heart, Lock, RefreshCw, FileText, Hospital
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "JegsMedLab — Understand Your Lab Results in Plain English",
+  title: "JegsMed — Understand Your Lab Results in Plain English",
   description: "Upload your lab reports and get instant AI-powered interpretations, symptom analysis, trend tracking, and personalized health insights. Powered by Claude AI.",
   keywords: "lab results, blood test interpreter, AI health, symptom checker, medical AI",
   openGraph: {
-    title: "JegsMedLab — Understand Your Lab Results in Plain English",
+    title: "JegsMed — Understand Your Lab Results in Plain English",
     description: "AI-powered lab result interpretation. Upload, analyze, and understand your health data.",
     type: "website",
   },
@@ -53,6 +53,12 @@ const features = [
     title: "Auto-Updated Knowledge",
     desc: "Our AI knowledge base pulls daily from NIH MedlinePlus, PubMed, and FDA — always current with medical research.",
     color: "text-amber-600 bg-amber-50",
+  },
+  {
+    icon: Hospital,
+    title: "ED Gateway (MediScan)",
+    desc: "AI-native emergency department platform: walk-through triage scanner, CareNavigator, live bed board, SOAP notes, and outcomes dashboard.",
+    color: "text-teal-600 bg-teal-50",
   },
 ];
 
@@ -114,7 +120,7 @@ const plans = [
 
 const testimonials = [
   {
-    quote: "I finally understand what my doctor has been trying to tell me for years. JegsMedLab explained my thyroid results better than any pamphlet.",
+    quote: "I finally understand what my doctor has been trying to tell me for years. JegsMed explained my thyroid results better than any pamphlet.",
     name: "Sarah K.",
     role: "Managing Hashimoto's disease",
     avatar: "SK",
@@ -150,7 +156,7 @@ export default function LandingPage() {
             <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-lg flex items-center justify-center">
               <FlaskConical className="w-4 h-4 text-white" />
             </div>
-            <span className="font-bold text-slate-900 text-lg">JegsMedLab</span>
+            <span className="font-bold text-slate-900 text-lg">JegsMed</span>
           </div>
           <div className="hidden sm:flex items-center gap-6 text-sm text-slate-600">
             <a href="#features" className="hover:text-blue-600 transition-colors">Features</a>
@@ -236,7 +242,7 @@ export default function LandingPage() {
             Everything You Need to Own Your Health
           </h2>
           <p className="text-slate-500 text-lg max-w-2xl mx-auto">
-            JegsMedLab combines six powerful tools into one platform — replacing apps like
+            JegsMed combines six powerful tools into one platform — replacing apps like
             MedDecode, LabSense, ClearLab, and Wizey Health.
           </p>
         </div>
@@ -374,12 +380,36 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ED Gateway CTA */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="bg-gradient-to-br from-teal-700 to-teal-900 rounded-3xl p-10 text-center text-white">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <Hospital className="w-7 h-7 text-teal-300" />
+            <span className="text-sm font-semibold text-teal-300 uppercase tracking-widest">ED Gateway — MediScan Platform</span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-3">AI-Native Emergency Department Platform</h2>
+          <p className="text-teal-100 text-base mb-6 max-w-2xl mx-auto">
+            Walk-through triage scanner, live bed board, AI SOAP notes, Clinical Journeys™, and outcomes command dashboard — built for emergency departments.
+          </p>
+          <div className="flex flex-wrap gap-3 justify-center">
+            <Link href="/ed" className="bg-white text-teal-800 hover:bg-teal-50 font-bold px-8 py-3 rounded-xl inline-flex items-center gap-2 transition-all shadow-lg">
+              <Hospital className="w-5 h-5" />
+              Open ED Gateway
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+            <Link href="/ed/care-navigator" className="bg-teal-600/40 hover:bg-teal-600/60 border border-teal-400/30 text-white font-semibold px-8 py-3 rounded-xl inline-flex items-center gap-2 transition-all">
+              🩺 Try CareNavigator
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
         <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-12 text-center text-white">
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">Ready to Understand Your Health?</h2>
           <p className="text-blue-100 text-lg mb-8 max-w-xl mx-auto">
-            Join thousands of people who use JegsMedLab to take control of their health data.
+            Join thousands of people who use JegsMed to take control of their health data.
           </p>
           <Link
             href="/app"
@@ -401,7 +431,7 @@ export default function LandingPage() {
                 <div className="w-7 h-7 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-lg flex items-center justify-center">
                   <FlaskConical className="w-3.5 h-3.5 text-white" />
                 </div>
-                <span className="font-bold text-slate-900">JegsMedLab</span>
+                <span className="font-bold text-slate-900">JegsMed</span>
               </div>
               <p className="text-sm text-slate-500 leading-relaxed">
                 AI-powered health intelligence platform. Understand your lab results in plain English.
@@ -433,7 +463,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="border-t border-slate-200 pt-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400">
-            <p>© 2025 JegsMedLab. All rights reserved.</p>
+            <p>© 2025 JegsMed. All rights reserved.</p>
             <p>For educational purposes only. Not a substitute for professional medical advice.</p>
           </div>
         </div>
