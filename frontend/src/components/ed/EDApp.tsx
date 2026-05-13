@@ -3,11 +3,33 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useEDAuth, ED_API, ED_WS } from "@/contexts/EDAuthContext";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { useVoiceNote } from "@/hooks/useVoiceNote";
 import ClinicalJourneys from "./ClinicalJourneys";
 import OutcomesDashboard from "./OutcomesDashboard";
 import BillingPage from "./BillingPage";
 import StaffPage from "./StaffPage";
 import ChargeDashboard from "./ChargeDashboard";
+
+function VoiceMicButton({ onTranscript, style }: { onTranscript: (t: string) => void; style?: React.CSSProperties }) {
+  const { listening, supported, start, stop } = useVoiceNote();
+  if (!supported) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => listening ? stop() : start(onTranscript)}
+      title={listening ? "Stop recording" : "Voice input"}
+      style={{
+        padding: "5px 8px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 13,
+        background: listening ? "rgba(239,68,68,0.2)" : "rgba(13,148,136,0.15)",
+        color: listening ? "#f87171" : "#2dd4bf",
+        transition: "all 0.15s",
+        ...style,
+      }}
+    >
+      {listening ? "⏹" : "🎙"}
+    </button>
+  );
+}
 
 const ESI_CONFIG: any = {
   1: { color: "#dc2626", bg: "#fef2f2", label: "CRITICAL", icon: "🚨", destination: "Trauma Bay" },
@@ -184,6 +206,8 @@ function PatientQueueCard({ patient, onDischarge, onSOAP, user }: any) {
         {td.vertical_flow_eligible && <span className="intel-badge ok">⬆ Vertical</span>}
         {td.fast_track_eligible && <span className="intel-badge ok">⚡ Fast Track</span>}
         {td.disposition_prediction && <span className="intel-badge">{td.disposition_prediction}</span>}
+        {td.deterioration_risk === "high" && <span className="intel-badge" style={{ color: "#f97316", borderColor: "#f9731640", background: "#f9731608" }}>📈 Deteriorating</span>}
+        {td.deterioration_risk === "watch" && <span className="intel-badge" style={{ color: "#eab308", borderColor: "#eab30840", background: "#eab30808" }}>👁 Watch</span>}
       </div>
       {patient.risk_flags?.length > 0 && <div className="queue-flags">{patient.risk_flags.map((f: string, i: number) => (<span key={i} className="queue-flag" style={{ background: cfg.bg, color: cfg.color }}>{f}</span>))}</div>}
       {td.differential_diagnoses?.length > 0 && <div className="queue-ddx">DDx: {td.differential_diagnoses.join(" · ")}</div>}
@@ -224,6 +248,7 @@ function PatientQueueCard({ patient, onDischarge, onSOAP, user }: any) {
                   {["general","allergy","alert","lab","interpreter"].map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
                 <input value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Add clinical note…" onKeyDown={e => e.key === "Enter" && submitNote()} style={{ flex: 1, padding: "5px 8px", background: "#0d1b2e", border: "1px solid #1e293b", borderRadius: 6, color: "#e2e8f0", fontSize: 12 }} />
+                <VoiceMicButton onTranscript={t => setNoteText((prev: string) => prev ? prev + " " + t : t)} />
                 <button onClick={submitNote} disabled={addingNote || !noteText.trim()} style={{ padding: "5px 10px", background: "#0d9488", border: "none", borderRadius: 6, color: "#fff", fontSize: 12, cursor: "pointer" }}>{addingNote ? "…" : "Add"}</button>
               </div>
             </>
@@ -894,7 +919,13 @@ export default function EDApp() {
                   <div key={section} className="soap-section">
                     <div className="soap-section-title">{section.toUpperCase()}</div>
                     {soapEditing ? (
-                      <textarea className="soap-edit-textarea" value={soapEdits[section] ?? soapModal.note[section] ?? ""} onChange={e => setSoapEdits((prev: any) => ({ ...prev, [section]: e.target.value }))} rows={4} />
+                      <div style={{ position: "relative" }}>
+                        <textarea className="soap-edit-textarea" value={soapEdits[section] ?? soapModal.note[section] ?? ""} onChange={e => setSoapEdits((prev: any) => ({ ...prev, [section]: e.target.value }))} rows={4} style={{ paddingRight: 36 }} />
+                        <VoiceMicButton
+                          onTranscript={t => setSoapEdits((prev: any) => ({ ...prev, [section]: (prev[section] || soapModal.note[section] || "") + " " + t }))}
+                          style={{ position: "absolute", top: 6, right: 6 }}
+                        />
+                      </div>
                     ) : (
                       <div className="soap-section-text">{soapModal.note[section]}</div>
                     )}

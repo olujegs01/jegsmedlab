@@ -10,16 +10,20 @@ from sqlalchemy.orm import Session
 import json
 import os
 import uuid
+import asyncio
+import time
+import re
 from datetime import datetime, timezone
 from typing import Optional, List
 import logging
+import jwt as pyjwt
 
 from database import engine, Base, get_db
 import models
 from models import Patient, LabReport, LabValue, DiagnosticSession, Alert, ShareToken, User
 from schemas import (
     PatientProfile, LabReportOut, LabValueOut,
-    SymptomCheckRequest, AskRequest, TrendData, TrendPoint
+    SymptomCheckRequest, AskRequest, TrendData, TrendPoint, FollowupRequest
 )
 from ai_engine import AIEngine
 from rag_system import RAGSystem
@@ -101,12 +105,81 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=()"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data: blob: https:; "
+        "connect-src 'self' https://*.railway.app https://*.vercel.app; "
+        "frame-ancestors 'none';"
+    )
+    return response
+
+
+_PHI_PATHS = {"/api/lab-reports", "/api/symptoms", "/api/ask", "/api/history", "/api/trends", "/auth/me", "/api/alerts"}
+
+
+@app.middleware("http")
+async def phi_audit_middleware(request: Request, call_next):
+    start = time.time()
+    response = await call_next(request)
+    path = request.url.path
+    if any(path.startswith(p) for p in _PHI_PATHS):
+        auth = request.headers.get("authorization", "")
+        username = "anonymous"
+        if auth.startswith("Bearer "):
+            try:
+                from auth import SECRET_KEY, ALGORITHM
+                payload = pyjwt.decode(auth[7:], SECRET_KEY, algorithms=[ALGORITHM])
+                username = payload.get("sub", "unknown")
+            except Exception:
+                pass
+        ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown")
+        logger.info(
+            "PHI_ACCESS user=%s method=%s path=%s status=%d ip=%s duration=%.3fs",
+            username, request.method, path, response.status_code, ip, time.time() - start,
+        )
+    return response
+
+
 # Initialize services
 ai_engine = AIEngine()
 rag_system = RAGSystem()
 parser = LabReportParser()
 
 DEMO_PATIENT_ID = "demo-patient"
+
+# ── Rate Limiter ───────────────────────────────────────────────────────────────
+# Simple in-memory per-IP rate limiter (no external dependency required).
+# Buckets: { ip: {"count": int, "window_start": float} }
+_rate_buckets: dict = {}
+_RATE_WINDOW = 3600  # 1 hour window
+
+def _check_rate_limit(ip: str, limit: int) -> None:
+    """Raise 429 if the IP has exceeded `limit` requests in the rolling window."""
+    now = time.monotonic()
+    bucket = _rate_buckets.get(ip)
+    if bucket is None or (now - bucket["window_start"]) >= _RATE_WINDOW:
+        _rate_buckets[ip] = {"count": 1, "window_start": now}
+        return
+    bucket["count"] += 1
+    if bucket["count"] > limit:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests. Please wait before trying again.",
+            headers={"Retry-After": str(_RATE_WINDOW)},
+        )
 
 
 def get_or_create_demo_patient(db: Session) -> Patient:
@@ -289,6 +362,13 @@ async def get_me(current_user: User = Depends(get_current_user)):
         "full_name": current_user.full_name,
         "patient_id": current_user.patient.id if current_user.patient else None,
     }
+
+
+@app.post("/auth/refresh", tags=["Auth"])
+async def refresh_token(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Issue a fresh short-lived token to keep valid sessions alive."""
+    patient_id = get_patient_id_for_user(current_user, db)
+    return {"access_token": create_token(str(current_user.id), patient_id)}
 
 
 # ── Patient Endpoints ────────────────────────────────────────────────────────
@@ -834,25 +914,61 @@ async def get_trends(
 
 # ── Symptom Checker ──────────────────────────────────────────────────────────
 
+def _extract_urgency(text: str) -> str:
+    """Parse urgency level from AI analysis text."""
+    t = text.lower()
+    if "🚨" in t or "emergency" in t or "call 911" in t or "er now" in t or "go to the er" in t:
+        return "emergency"
+    if "🔴" in t or "urgent" in t or "within 24" in t or "within 48" in t:
+        return "urgent"
+    if "🟡" in t or "schedule soon" in t or "within 1" in t or "within 2 week" in t:
+        return "schedule_soon"
+    return "routine"
+
+
 @app.post("/api/symptom-check", tags=["Symptom Analysis"])
-async def check_symptoms(request: SymptomCheckRequest, db: Session = Depends(get_db)):
+async def check_symptoms(
+    request: SymptomCheckRequest,
+    raw_request: Request,
+    user: User | None = Depends(get_optional_user),
+    db: Session = Depends(get_db),
+):
     if not request.symptoms:
         raise HTTPException(status_code=400, detail="Please provide at least one symptom")
+    if len(request.symptoms) > 30:
+        raise HTTPException(status_code=400, detail="Too many symptoms (max 30)")
 
-    patient = db.query(Patient).filter(Patient.id == request.patient_id).first()
-    patient_info = {}
+    # Rate limiting: 30/hr unauthenticated, 120/hr authenticated
+    client_ip = raw_request.headers.get("X-Forwarded-For", raw_request.client.host or "unknown").split(",")[0].strip()
+    rate_limit = 120 if user else 30
+    _check_rate_limit(f"symptom:{client_ip}", rate_limit)
+
+    # Resolve the correct patient for this user
+    effective_patient_id = resolve_patient_id(user, request.patient_id, db)
+
+    # Fetch patient data and RAG context in parallel
+    loop = asyncio.get_event_loop()
+    rag_context, patient = await asyncio.gather(
+        loop.run_in_executor(None, rag_system.retrieve_for_symptoms, request.symptoms),
+        loop.run_in_executor(None, lambda: db.query(Patient).filter(Patient.id == effective_patient_id).first()),
+    )
+
+    # Build patient info — prefer request-level demographics (user entered in form) over profile
+    patient_info: dict = {}
     if patient:
         patient_info = {
-            "age": patient.age,
-            "sex": patient.sex,
+            "age": request.age or patient.age,
+            "sex": request.sex or patient.sex,
             "medical_conditions": patient.medical_conditions or [],
             "medications": patient.medications or [],
         }
+    elif request.age or request.sex:
+        patient_info = {"age": request.age, "sex": request.sex}
 
-    rag_context = rag_system.retrieve_for_symptoms(request.symptoms)
+    vital_signs = request.vital_signs.model_dump(exclude_none=True) if request.vital_signs else None
 
     async def generate():
-        analysis_buffer = []
+        analysis_buffer: list[str] = []
         session_id = str(uuid.uuid4())
 
         async for chunk in ai_engine.check_symptoms(
@@ -862,20 +978,52 @@ async def check_symptoms(request: SymptomCheckRequest, db: Session = Depends(get
             additional_context=request.additional_context,
             rag_context=rag_context,
             patient_info=patient_info,
+            vital_signs=vital_signs,
         ):
             analysis_buffer.append(chunk)
             yield f"data: {json.dumps({'type': 'text', 'content': chunk})}\n\n"
 
+        full_analysis = "".join(analysis_buffer)
+        urgency = _extract_urgency(full_analysis)
+
         session = DiagnosticSession(
             id=session_id,
-            patient_id=request.patient_id,
+            patient_id=effective_patient_id,
             symptoms=request.symptoms,
-            ai_analysis="".join(analysis_buffer)[:10000],
+            ai_analysis=full_analysis[:10000],
+            urgency_level=urgency,
         )
         db.add(session)
         db.commit()
 
-        yield f"data: {json.dumps({'type': 'done', 'session_id': session_id})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'session_id': session_id, 'urgency_level': urgency})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+# ── Symptom Follow-up Chat ───────────────────────────────────────────────────
+
+@app.post("/api/symptom-followup", tags=["Symptom Analysis"])
+async def symptom_followup(
+    request: FollowupRequest,
+    raw_request: Request,
+    user: User | None = Depends(get_optional_user),
+):
+    client_ip = raw_request.headers.get("X-Forwarded-For", raw_request.client.host or "unknown").split(",")[0].strip()
+    _check_rate_limit(f"followup:{client_ip}", 60 if user else 20)
+
+    async def generate():
+        async for chunk in ai_engine.followup_question(
+            question=request.question,
+            analysis_context=request.analysis_context,
+            symptoms=request.symptoms,
+        ):
+            yield f"data: {json.dumps({'type': 'text', 'content': chunk})}\n\n"
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
     return StreamingResponse(
         generate(),

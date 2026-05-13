@@ -1,5 +1,5 @@
 """
-AI Engine — Claude Opus 4.6 integration for lab result analysis,
+AI Engine — Claude Opus 4.7 integration for lab result analysis,
 symptom checking, and medical Q&A with RAG-enhanced context.
 """
 
@@ -65,7 +65,7 @@ class AIEngine:
         patient_info: dict = None,
     ) -> AsyncGenerator[str, None]:
         """
-        Stream lab report analysis using Claude Opus 4.6.
+        Stream lab report analysis using Claude Opus 4.7.
         report_content: {'text': str, 'images': list, 'needs_vision': bool}
         """
         patient_context = ""
@@ -127,10 +127,12 @@ Please provide:
         user_content.append({"type": "text", "text": text_prompt})
 
         async with self.client.messages.stream(
-            model="claude-opus-4-6",
-            max_tokens=4096,
-            system=SYSTEM_PROMPT,
+            model="claude-opus-4-7",
+            max_tokens=6000,
+            thinking={"type": "enabled", "budget_tokens": 2000},
+            system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
             messages=[{"role": "user", "content": user_content}],
+            betas=["interleaved-thinking-2025-05-14"],
         ) as stream:
             async for text in stream.text_stream:
                 yield text
@@ -183,8 +185,9 @@ Include ALL values found, even if reference ranges are missing."""
         user_content.append({"type": "text", "text": prompt})
 
         response = await self.client.messages.create(
-            model="claude-opus-4-6",
+            model="claude-opus-4-7",
             max_tokens=4096,
+            system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
             messages=[{"role": "user", "content": user_content}],
         )
 
@@ -207,6 +210,17 @@ Include ALL values found, even if reference ranges are missing."""
             logger.error(f"Failed to parse JSON: {text[:500]}")
             return {"values": [], "report_date": None, "lab_name": None}
 
+    @staticmethod
+    def _sanitize(text: str, max_len: int = 500) -> str:
+        """Strip prompt-injection patterns and enforce length limits."""
+        import re
+        if not text:
+            return ""
+        # Remove common injection attempts
+        cleaned = re.sub(r"(ignore previous|disregard|system prompt|you are now|act as|jailbreak)",
+                         "[removed]", text, flags=re.IGNORECASE)
+        return cleaned[:max_len]
+
     async def check_symptoms(
         self,
         symptoms: list[str],
@@ -215,70 +229,155 @@ Include ALL values found, even if reference ranges are missing."""
         additional_context: str,
         rag_context: str,
         patient_info: dict = None,
+        vital_signs: dict = None,
     ) -> AsyncGenerator[str, None]:
-        """Stream symptom analysis and differential diagnosis."""
-        patient_context = ""
+        """Stream symptom analysis using Claude Opus 4.7 with clinical triage framework."""
+        # Build patient context
+        patient_lines = []
         if patient_info:
-            parts = []
             if patient_info.get("age"):
-                parts.append(f"Age: {patient_info['age']}")
+                patient_lines.append(f"Age: {patient_info['age']}")
             if patient_info.get("sex"):
-                parts.append(f"Sex: {patient_info['sex']}")
+                patient_lines.append(f"Sex: {patient_info['sex']}")
             if patient_info.get("medical_conditions"):
-                parts.append(f"Known conditions: {', '.join(patient_info['medical_conditions'])}")
+                patient_lines.append(f"Known conditions: {', '.join(patient_info['medical_conditions'])}")
             if patient_info.get("medications"):
-                parts.append(f"Current medications: {', '.join(patient_info['medications'])}")
-            patient_context = "\nPatient Profile:\n" + "\n".join(parts) if parts else ""
+                patient_lines.append(f"Current medications: {', '.join(patient_info['medications'])}")
 
-        prompt = f"""A patient is reporting the following symptoms and needs guidance.
-{patient_context}
+        patient_section = ("PATIENT PROFILE:\n" + "\n".join(patient_lines)) if patient_lines else ""
 
-SYMPTOMS REPORTED:
-- Symptoms: {', '.join(symptoms)}
-- Duration: {duration or 'Not specified'}
-- Severity: {severity or 'Not specified'}
-- Additional context: {additional_context or 'None provided'}
+        # Build vital signs section
+        vitals_lines = []
+        if vital_signs:
+            if vital_signs.get("temperature_f"):
+                vitals_lines.append(f"Temperature: {vital_signs['temperature_f']}°F")
+            if vital_signs.get("heart_rate"):
+                vitals_lines.append(f"Heart rate: {vital_signs['heart_rate']} bpm")
+            if vital_signs.get("systolic_bp") and vital_signs.get("diastolic_bp"):
+                vitals_lines.append(f"Blood pressure: {vital_signs['systolic_bp']}/{vital_signs['diastolic_bp']} mmHg")
+            if vital_signs.get("oxygen_saturation"):
+                vitals_lines.append(f"SpO2: {vital_signs['oxygen_saturation']}%")
+            if vital_signs.get("respiratory_rate"):
+                vitals_lines.append(f"Respiratory rate: {vital_signs['respiratory_rate']} breaths/min")
 
-MEDICAL REFERENCE CONTEXT:
+        vitals_section = ("VITAL SIGNS:\n" + "\n".join(vitals_lines)) if vitals_lines else ""
+
+        # Sanitize free-text inputs
+        safe_context = self._sanitize(additional_context or "", max_len=800)
+        safe_symptoms = [self._sanitize(s, max_len=80) for s in symptoms[:20]]
+
+        prompt = f"""You are an experienced attending physician conducting an initial clinical assessment. A patient presents with the following information.
+
+{patient_section}
+
+CHIEF COMPLAINT — SYMPTOMS REPORTED:
+{chr(10).join(f"  • {s}" for s in safe_symptoms)}
+
+Duration: {self._sanitize(duration or 'Not specified', 80)}
+Severity: {self._sanitize(severity or 'Not specified', 20)}
+{vitals_section}
+Additional history: {safe_context or 'None provided'}
+
+MEDICAL REFERENCE CONTEXT (clinical knowledge base):
 {rag_context}
 
-You are a highly trained virtual health assistant analyzing symptoms like a doctor. Structure your response in exactly these three sections:
+Perform a thorough clinical assessment. Structure your response using EXACTLY these sections:
 
 ---
 
-## 🩺 Symptom Analysis
-Analyze the symptom pattern as a doctor would during an initial consultation. Explain what these symptoms together may indicate, any notable combinations or patterns, and the physiological reasons why these symptoms commonly occur together. Write in clear, empathetic plain English — no jargon without explanation.
+## 🚨 Red Flag Assessment
+Check immediately for life-threatening presentations. If ANY of the following apply — chest pain with shortness of breath, sudden severe headache ("thunderclap"), stroke symptoms (FAST), SpO2 < 94%, fever > 104°F, severe allergic reaction signs — open with a prominent warning to seek EMERGENCY care NOW before continuing.
+
+If no red flags, briefly state the presentation does not appear immediately life-threatening and continue.
 
 ---
 
-## 💡 Accurate Insights
-Provide a detailed analysis with potential diagnoses, from most to least likely. For each:
+## 🩺 Clinical Symptom Analysis
+Analyze the symptom cluster as a clinician would during an initial consultation:
+- What body systems are involved?
+- What is the temporal pattern and progression?
+- How do the symptoms relate to each other physiologically?
+- Are there any notable symptom combinations that narrow or broaden the differential?
+- If vital signs are provided, interpret them clinically.
 
-**[Condition Name]** — Explain why this fits the symptom pattern and what makes it more or less likely.
-
-List 3–5 conditions. End this section with:
-- **Urgency level:** 🟢 Routine / 🟡 Schedule Soon / 🔴 Urgent / 🚨 Emergency Room — with a one-line reason.
-- **Suggested lab tests** that would help confirm or rule out the top conditions.
-
----
-
-## 📋 Tailored Recommendations
-Provide personalized next steps in two parts:
-
-**At-Home Care:** Specific, evidence-based things this person can safely do right now to manage symptoms and track changes.
-
-**Specialist Referrals:** Which type of doctor or specialist to see, and why, based on the most likely conditions.
-
-**Questions to Ask Your Doctor:** 3–4 targeted questions to bring to the appointment.
+Write in clear, empathetic plain English. Explain medical terms when used.
 
 ---
 
-*This analysis is educational guidance from an AI trained on medical knowledge — not a clinical diagnosis. Always consult a licensed healthcare provider for medical decisions.*"""
+## 💡 Differential Diagnosis
+List 3–5 conditions from most to least likely. For each:
+
+**[Condition Name]** *(ICD-10: XXX.X)* — [1-sentence description]
+- **Supports:** Why this fits the symptom pattern
+- **Against:** What doesn't fit or would argue against
+- **Likelihood:** High / Moderate / Low
+
+End with:
+- **Recommended investigations:** Specific labs, imaging, or tests that would confirm or rule out top differentials (e.g., CBC, TSH, CXR, ECG)
+
+---
+
+## ⚡ Triage & Urgency
+State one clear urgency level with an action and timeframe:
+- 🚨 **Emergency** — Go to the ER or call emergency services immediately
+- 🔴 **Urgent** — See a doctor within 24–48 hours
+- 🟡 **Schedule Soon** — Book an appointment within 1–2 weeks
+- 🟢 **Monitor** — Self-care appropriate; see a doctor if symptoms worsen or persist beyond [timeframe]
+
+---
+
+## 📋 Personalized Action Plan
+
+**Immediate Self-Care:** Evidence-based steps this patient can take right now. Be specific (e.g., specific OTC medications, hydration targets, positioning, activity restrictions).
+
+**Specialist Referral:** Which specialty to see and why, based on the most likely diagnosis.
+
+**Warning Signs — Return to Care:** Specific symptoms that should prompt immediate medical attention.
+
+**Questions to Ask Your Doctor:** 3–4 targeted, clinically relevant questions for the appointment.
+
+---
+
+*This AI-generated analysis is for educational purposes only and does not constitute a medical diagnosis. Always consult a licensed healthcare provider for diagnosis and treatment.*"""
 
         async with self.client.messages.stream(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=1500,
-            system=SYSTEM_PROMPT,
+            model="claude-opus-4-7",
+            max_tokens=2500,
+            system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
+            messages=[{"role": "user", "content": prompt}],
+        ) as stream:
+            async for text in stream.text_stream:
+                yield text
+
+    async def followup_question(
+        self,
+        question: str,
+        analysis_context: str,
+        symptoms: list[str],
+    ) -> AsyncGenerator[str, None]:
+        """Stream a follow-up answer about a previous symptom analysis."""
+        safe_q = self._sanitize(question, 400)
+        symptom_list = ", ".join(symptoms[:20]) if symptoms else "not specified"
+        prompt = f"""A patient received the following clinical assessment for presenting symptoms: {symptom_list}.
+
+PREVIOUS ANALYSIS:
+{analysis_context[:6000]}
+
+PATIENT FOLLOW-UP QUESTION:
+{safe_q}
+
+Answer this follow-up question clearly and concisely. Refer directly to the analysis above when relevant.
+- If asking about a medical term or condition: explain in plain English
+- If asking for more detail on a section: expand on it specifically
+- If asking about next steps: be practical and actionable
+- Always reinforce that a licensed healthcare provider makes the final decisions
+
+Keep the response focused and helpful. Do not repeat the entire analysis — answer the specific question asked."""
+
+        async with self.client.messages.stream(
+            model="claude-opus-4-7",
+            max_tokens=600,
+            system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
             messages=[{"role": "user", "content": prompt}],
         ) as stream:
             async for text in stream.text_stream:
@@ -320,9 +419,9 @@ Please provide a clear, accurate, empathetic answer. Include:
 Keep it conversational but medically accurate."""
 
         async with self.client.messages.stream(
-            model="claude-opus-4-6",
+            model="claude-opus-4-7",
             max_tokens=2048,
-            system=SYSTEM_PROMPT,
+            system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
             messages=[{"role": "user", "content": prompt}],
         ) as stream:
             async for text in stream.text_stream:
@@ -355,8 +454,9 @@ In 2-3 sentences, describe:
 Keep it concise and patient-friendly."""
 
         response = await self.client.messages.create(
-            model="claude-opus-4-6",
+            model="claude-opus-4-7",
             max_tokens=300,
+            system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
             messages=[
                 {"role": "user", "content": prompt}
             ],
@@ -515,9 +615,9 @@ Write a formal referral letter with these sections:
 Use professional but clear medical language. Keep it under 400 words."""
 
         async with self.client.messages.stream(
-            model="claude-opus-4-6",
+            model="claude-opus-4-7",
             max_tokens=1200,
-            system=SYSTEM_PROMPT,
+            system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
             messages=[{"role": "user", "content": prompt}],
         ) as stream:
             async for text in stream.text_stream:

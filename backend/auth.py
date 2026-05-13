@@ -14,7 +14,7 @@ import models
 
 SECRET_KEY = os.getenv("SECRET_KEY", "jegsmedlab-secret-key-change-in-production")
 ALGORITHM = "HS256"
-TOKEN_EXPIRE_DAYS = 30
+TOKEN_EXPIRE_HOURS = 8
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -31,7 +31,7 @@ def create_token(user_id: str, patient_id: str) -> str:
     payload = {
         "sub": user_id,
         "patient_id": patient_id,
-        "exp": datetime.now(timezone.utc) + timedelta(days=TOKEN_EXPIRE_DAYS),
+        "exp": datetime.now(timezone.utc) + timedelta(hours=TOKEN_EXPIRE_HOURS),
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
