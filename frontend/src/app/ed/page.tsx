@@ -2,7 +2,6 @@
 import { EDAuthProvider, useEDAuth } from "@/contexts/EDAuthContext";
 import EDApp from "@/components/ed/EDApp";
 import EDLoginPage from "@/components/ed/EDLoginPage";
-import "./ed.css";
 
 function EDContent() {
   const { user, loading } = useEDAuth();

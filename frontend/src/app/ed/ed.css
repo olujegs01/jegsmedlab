@@ -87,10 +87,8 @@
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
 }
 
-/* ── Reset ─────────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-.ed-shell-html-unused { font-size: 16px; -webkit-font-smoothing: antialiased; }
+/* ── Reset (scoped to ED shell only) ───────────────────────── */
+.ed-shell *, .ed-shell *::before, .ed-shell *::after { box-sizing: border-box; }
 
 .ed-shell {
   font-family: var(--font-sans);
@@ -98,10 +96,12 @@
   color: var(--text-primary);
   line-height: 1.5;
   overflow-x: hidden;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
 }
 
-button { font-family: var(--font-sans); }
-input, textarea, select { font-family: var(--font-sans); }
+.ed-shell button { font-family: var(--font-sans); }
+.ed-shell input, .ed-shell textarea, .ed-shell select { font-family: var(--font-sans); }
 
 /* Focus ring — WCAG 2.1 AA */
 :focus-visible {
