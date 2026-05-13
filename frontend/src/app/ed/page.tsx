@@ -1,9 +1,9 @@
 "use client";
-import { EDAuthProvider, useEDAuth } from "@/contexts/EDAuthContext";
+import { useEDAuth } from "@/contexts/EDAuthContext";
 import EDApp from "@/components/ed/EDApp";
 import EDLoginPage from "@/components/ed/EDLoginPage";
 
-function EDContent() {
+export default function EDGatewayPage() {
   const { user, loading } = useEDAuth();
   if (loading) {
     return (
@@ -16,12 +16,4 @@ function EDContent() {
   }
   if (!user) return <EDLoginPage />;
   return <EDApp />;
-}
-
-export default function EDGatewayPage() {
-  return (
-    <EDAuthProvider>
-      <EDContent />
-    </EDAuthProvider>
-  );
 }

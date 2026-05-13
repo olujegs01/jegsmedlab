@@ -9,6 +9,7 @@ import OutcomesDashboard from "./OutcomesDashboard";
 import BillingPage from "./BillingPage";
 import StaffPage from "./StaffPage";
 import ChargeDashboard from "./ChargeDashboard";
+import TrainingMode from "./TrainingMode";
 
 function VoiceMicButton({ onTranscript, style }: { onTranscript: (t: string) => void; style?: React.CSSProperties }) {
   const { listening, supported, start, stop } = useVoiceNote();
@@ -94,6 +95,7 @@ function SensorCard({ data }: any) {
 }
 
 function TriageCard({ data }: any) {
+  const [reasoningOpen, setReasoningOpen] = useState(false);
   if (!data) return null;
   const cfg = ESI_CONFIG[data.esi_level] || ESI_CONFIG[5];
   const sepsisCritical = ["high", "critical"].includes(data.sepsis_probability);
@@ -113,6 +115,26 @@ function TriageCard({ data }: any) {
       {data.risk_flags?.length > 0 && <div className="risk-flags">{data.risk_flags.map((f: string, i: number) => (<span key={i} className="risk-flag" style={{ borderColor: cfg.color, color: cfg.color }}>⚑ {f}</span>))}</div>}
       {data.differential_diagnoses?.length > 0 && <div className="differentials"><span className="diff-label">DDx: </span>{data.differential_diagnoses.join(" · ")}</div>}
       {data.time_sensitive_interventions?.length > 0 && <div className="time-sensitive">⏱ &lt;30min: {data.time_sensitive_interventions.join(" · ")}</div>}
+      {data.reasoning_chain?.length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <button
+            onClick={() => setReasoningOpen(o => !o)}
+            style={{ background: "none", border: "none", color: "#2dd4bf", fontSize: 11, cursor: "pointer", padding: 0, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}
+          >
+            🧠 {reasoningOpen ? "Hide" : "Show"} AI Reasoning ({data.reasoning_chain.length} steps)
+          </button>
+          {reasoningOpen && (
+            <div style={{ marginTop: 8, padding: "10px 12px", background: "rgba(13,148,136,0.06)", borderRadius: 8, border: "1px solid rgba(45,212,191,0.15)" }}>
+              {data.reasoning_chain.map((step: string, i: number) => (
+                <div key={i} style={{ display: "flex", gap: 8, marginBottom: i < data.reasoning_chain.length - 1 ? 8 : 0 }}>
+                  <span style={{ color: "#0d9488", fontWeight: 700, fontSize: 11, flexShrink: 0, marginTop: 1 }}>{i + 1}.</span>
+                  <span style={{ color: "#94a3b8", fontSize: 12, lineHeight: 1.5 }}>{step}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       <div className="routing-dest">📍 {data.routing_destination} → <b>{data.room_assignment}</b></div>
     </div>
   );
@@ -211,6 +233,20 @@ function PatientQueueCard({ patient, onDischarge, onSOAP, user }: any) {
       </div>
       {patient.risk_flags?.length > 0 && <div className="queue-flags">{patient.risk_flags.map((f: string, i: number) => (<span key={i} className="queue-flag" style={{ background: cfg.bg, color: cfg.color }}>{f}</span>))}</div>}
       {td.differential_diagnoses?.length > 0 && <div className="queue-ddx">DDx: {td.differential_diagnoses.join(" · ")}</div>}
+      {td.reasoning_chain?.length > 0 && (
+        <details style={{ marginTop: 6 }}>
+          <summary style={{ fontSize: 11, color: "#2dd4bf", cursor: "pointer", fontWeight: 600 }}>
+            🧠 AI Reasoning
+          </summary>
+          <div style={{ marginTop: 6, paddingLeft: 12 }}>
+            {td.reasoning_chain.slice(0, 3).map((step: string, i: number) => (
+              <div key={i} style={{ fontSize: 11, color: "#64748b", marginBottom: 4, lineHeight: 1.4 }}>
+                {i + 1}. {step}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
       {patient.care_pre_staged?.length > 0 && <div className="queue-orders">📋 {patient.care_pre_staged.slice(0, 3).join(" · ")}{patient.care_pre_staged.length > 3 && ` +${patient.care_pre_staged.length - 3} more`}</div>}
 
       {assignOpen && (
@@ -576,7 +612,7 @@ const COMPLAINT_CATEGORIES: any = {
   "Psych / Other": ["anxiety / panic", "suicidal ideation", "mental health crisis", "allergic reaction", "eye pain", "urinary symptoms"],
 };
 
-const PAGE_TITLES: any = { scanner: "Patient Scanner", queue: "ER Queue", staff: "Staff Management", analytics: "Command Dashboard", beds: "Bed Board", report: "Shift Report", journeys: "Clinical Journeys", audit: "Audit Log", compliance: "Compliance Center", billing: "Billing", charge: "Charge Nurse Dashboard" };
+const PAGE_TITLES: any = { scanner: "Patient Scanner", queue: "ER Queue", staff: "Staff Management", analytics: "Command Dashboard", beds: "Bed Board", report: "Shift Report", journeys: "Clinical Journeys", audit: "Audit Log", compliance: "Compliance Center", billing: "Billing", charge: "Charge Nurse Dashboard", training: "ESI Training Simulation" };
 
 const NAV_ITEMS = [
   { id: "scanner", icon: "📡", label: "Patient Scanner" },
@@ -585,6 +621,7 @@ const NAV_ITEMS = [
   { id: "beds", icon: "🛏", label: "Bed Board" },
   { id: "charge", icon: "🖥", label: "Charge Nurse", escalationBadge: true },
   { id: "journeys", icon: "🩺", label: "Journeys", journeyBadge: true },
+  { id: "training", icon: "🎓", label: "Training" },
 ];
 
 const STAFF_NAV = [{ id: "report", icon: "📋", label: "Shift Report" }];
@@ -835,6 +872,23 @@ export default function EDApp() {
                 <ZoneStep zoneNum={2} label={ZONE_LABELS[2]} status={zoneStatus[2]}>
                   {biometricData && <div className="info-row"><span>👤 {biometricData.name}</span><span>ID: {biometricData.patient_id}</span><span>Match: {(biometricData.face_match_confidence * 100).toFixed(1)}%</span></div>}
                   {ehrData && ehrData.history?.length > 0 && <div className="ehr-row"><b>History:</b> {ehrData.history.join(", ")}{ehrData.allergies?.length > 0 && <> · <b>Allergies:</b> {ehrData.allergies.join(", ")}</>}</div>}
+                  {ehrData?.fhir_source && ehrData.fhir_source !== "simulated" && (
+                    <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6, fontSize: 11 }}>
+                      <span style={{
+                        padding: "2px 8px", borderRadius: 10, fontWeight: 600,
+                        background: ehrData.fhir_source === "epic" ? "rgba(37,99,235,0.15)" : "rgba(13,148,136,0.15)",
+                        color: ehrData.fhir_source === "epic" ? "#60a5fa" : "#2dd4bf",
+                        border: `1px solid ${ehrData.fhir_source === "epic" ? "#3b82f640" : "#0d948840"}`,
+                      }}>
+                        {ehrData.fhir_source === "epic" ? "⚡ Epic FHIR R4" : "🌐 FHIR R4 Sandbox"}
+                      </span>
+                      {ehrData.fhir_vitals && Object.keys(ehrData.fhir_vitals).length > 0 && (
+                        <span style={{ color: "#64748b", fontSize: 11 }}>
+                          {Object.entries(ehrData.fhir_vitals).slice(0, 2).map(([k, v]: any) => `${k}: ${v}`).join(" · ")}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {insuranceData && <div className="insurance-row">🏦 {insuranceData.provider} — {insuranceData.plan_type} — Co-pay: <b>${insuranceData.copay.toFixed(0)}</b>{insuranceData.eligible ? " ✓ Eligible" : " ✗ Not eligible"}</div>}
                 </ZoneStep>
                 <ZoneStep zoneNum={3} label={ZONE_LABELS[3]} status={zoneStatus[3]}><TriageCard data={triageData} /></ZoneStep>
@@ -894,6 +948,7 @@ export default function EDApp() {
           {activeTab === "audit" && <AuditLogPanel user={user} />}
           {activeTab === "journeys" && <ClinicalJourneys activeTab="journeys" />}
           {activeTab === "compliance" && <ClinicalJourneys activeTab="compliance" />}
+          {activeTab === "training" && <TrainingMode />}
         </main>
       </div>
 
